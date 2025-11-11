@@ -8,16 +8,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Check if user is already logged in on mount
-  useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      fetchCurrentUser();
-    } else {
-      setLoading(false);
-    }
-  }, []);
-
   const fetchCurrentUser = useCallback(async () => {
     try {
       const response = await authAPI.getCurrentUser();
@@ -31,6 +21,16 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }
   }, []);
+
+  // Check if user is already logged in on mount
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      fetchCurrentUser();
+    } else {
+      setLoading(false);
+    }
+  }, [fetchCurrentUser]);
 
   const login = useCallback(async (email, password) => {
     setLoading(true);

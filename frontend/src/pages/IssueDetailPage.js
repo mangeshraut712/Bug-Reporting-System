@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { issuesAPI, commentsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,11 +16,7 @@ const IssueDetailPage = () => {
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchIssueAndComments();
-  }, [issueId]);
-
-  const fetchIssueAndComments = async () => {
+  const fetchIssueAndComments = useCallback(async () => {
     try {
       setLoading(true);
       const issueRes = await issuesAPI.retrieve(issueId);
@@ -34,7 +30,11 @@ const IssueDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [issueId, navigate]);
+
+  useEffect(() => {
+    fetchIssueAndComments();
+  }, [fetchIssueAndComments]);
 
   const handleStatusChange = async (newStatus) => {
     try {

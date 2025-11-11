@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { projectsAPI, issuesAPI } from '../services/api';
 import { toast } from 'react-toastify';
@@ -22,11 +22,7 @@ const IssueListPage = () => {
     priority: 'medium',
   });
 
-  useEffect(() => {
-    fetchProjectAndIssues();
-  }, [projectId, filters]);
-
-  const fetchProjectAndIssues = async () => {
+  const fetchProjectAndIssues = useCallback(async () => {
     try {
       setLoading(true);
       const projectRes = await projectsAPI.retrieve(projectId);
@@ -39,7 +35,11 @@ const IssueListPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, filters]);
+
+  useEffect(() => {
+    fetchProjectAndIssues();
+  }, [fetchProjectAndIssues]);
 
   const handleCreateIssue = async (e) => {
     e.preventDefault();
