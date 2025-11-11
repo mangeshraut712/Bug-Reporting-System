@@ -544,82 +544,93 @@ jobs:
 
 ### 🚀 Step-by-Step Deployment Guide
 
-#### **Phase 1: Backend Deployment (Render)**
+#### **Phase 1: Backend Deployment (Heroku)**
 
-##### Step 1: Create Render Account & Connect Repository
-1. Go to [https://dashboard.render.com](https://dashboard.render.com)
+##### Step 1: Create Heroku Account & Install CLI
+1. Go to [https://www.heroku.com](https://www.heroku.com)
 2. Sign up/Login with GitHub account
-3. Click **"New"** → **"Blueprint"**
-4. Connect your GitHub repository: `mangeshraut712/Bug-Reporting-System`
-5. Render will automatically detect `render.yaml`
+3. Install Heroku CLI: `brew install heroku` (macOS) or download from [heroku.com/cli](https://devcenter.heroku.com/articles/heroku-cli)
+4. Login: `heroku login`
 
-##### Step 2: Configure Blueprint Deployment
-1. **Service Name**: `bug-reporting-backend` (auto-detected)
-2. **Branch**: `main` (default)
-3. **Database**: PostgreSQL will be auto-created
-4. Click **"Create Blueprint"**
-
-##### Step 3: Monitor Initial Deployment
-1. Wait for database creation (2-3 minutes)
-2. Backend service will build automatically
-3. Check logs for any errors
-4. Once deployed, note the service URL: `https://your-service.onrender.com`
-
-##### Step 4: Run Database Migrations
+##### Step 2: Create Heroku App
 ```bash
-# In Render service shell (via dashboard)
-python manage.py migrate
-python manage.py collectstatic --noinput
+# Create app
+heroku create bug-reporting-backend
+
+# Add PostgreSQL database
+heroku addons:create heroku-postgresql:hobby-dev
+
+# Set environment variables
+heroku config:set DEBUG=False
+heroku config:set SECRET_KEY=$(python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
+heroku config:set CORS_ALLOWED_ORIGINS=https://your-frontend.vercel.app
 ```
 
-#### **Phase 2: Frontend Deployment (Netlify)**
+##### Step 3: Deploy Backend
+```bash
+# Add Heroku remote
+heroku git:remote -a bug-reporting-backend
 
-##### Step 1: Create Netlify Account & Connect Repository
-1. Go to [https://app.netlify.com](https://app.netlify.com)
+# Deploy
+git push heroku main
+
+# Run migrations
+heroku run python manage.py migrate
+
+# Create superuser (optional)
+heroku run python manage.py createsuperuser
+```
+
+##### Step 4: Verify Deployment
+```bash
+# Check logs
+heroku logs --tail
+
+# Test API
+curl https://bug-reporting-backend.herokuapp.com/api/projects/
+```
+
+#### **Phase 2: Frontend Deployment (Vercel)**
+
+##### Step 1: Create Vercel Account & Connect Repository
+1. Go to [https://vercel.com](https://vercel.com)
 2. Sign up/Login with GitHub account
-3. Click **"Add new site"** → **"Import an existing project"**
-4. Connect your GitHub repository: `mangeshraut712/Bug-Reporting-System`
+3. Click **"Add New Project"**
+4. Import your GitHub repository: `mangeshraut712/Bug-Reporting-System`
 
 ##### Step 2: Configure Build Settings
-1. **Branch**: `main`
-2. **Build command**: `npm run build` (auto-detected from netlify.toml)
-3. **Publish directory**: `build` (auto-detected)
-4. **Environment variables**: Add `REACT_APP_API_URL`
+1. **Framework Preset**: React (auto-detected)
+2. **Build Command**: `npm run build` (auto-detected from vercel.json)
+3. **Output Directory**: `build` (auto-detected)
+4. **Root Directory**: `./` (default)
 
 ##### Step 3: Set Environment Variables
-```
-REACT_APP_API_URL=https://your-backend-service.onrender.com/api
-```
-Replace `your-backend-service` with your actual Render service name.
+1. Go to **Settings** → **Environment Variables**
+2. Add variable:
+   - **Name**: `REACT_APP_API_URL`
+   - **Value**: `https://bug-reporting-backend.herokuapp.com/api`
+   - **Environments**: Production, Preview, Development
 
 ##### Step 4: Deploy Frontend
-1. Click **"Deploy site"**
+1. Click **"Deploy"**
 2. Wait for build completion (2-3 minutes)
-3. Note the frontend URL: `https://your-site.netlify.app`
+3. Note the frontend URL: `https://your-project.vercel.app`
 
 #### **Phase 3: Post-Deployment Configuration**
 
-##### Step 1: Update CORS Settings in Render
-1. Go to your Render service dashboard
-2. Navigate to **Environment**
-3. Update `CORS_ALLOWED_ORIGINS`:
-```
-CORS_ALLOWED_ORIGINS=https://your-frontend-site.netlify.app
+##### Step 1: Update Backend CORS Settings
+```bash
+# Update CORS to allow Vercel frontend
+heroku config:set CORS_ALLOWED_ORIGINS=https://your-project.vercel.app
 ```
 
 ##### Step 2: Test API Connectivity
-1. Visit your frontend URL
+1. Visit your Vercel frontend URL
 2. Try to register a new user
 3. Check browser developer tools for any CORS errors
 4. Verify API calls are working
 
-##### Step 3: Create Admin User
-```bash
-# In Render service shell
-python manage.py createsuperuser
-```
-
-##### Step 4: Verify Production Setup
+##### Step 3: Verify Production Setup
 - ✅ Frontend loads without errors
 - ✅ User registration works
 - ✅ API endpoints respond correctly
@@ -628,128 +639,125 @@ python manage.py createsuperuser
 
 #### **Phase 4: Domain Configuration (Optional)**
 
-##### Custom Domain on Netlify
-1. Go to **Site settings** → **Domain management**
+##### Custom Domain on Vercel
+1. Go to **Settings** → **Domains**
 2. Add custom domain
 3. Configure DNS records as instructed
-4. Update Render CORS settings with new domain
+4. Update Heroku CORS settings with new domain
 
-##### Custom Domain on Render
-1. Go to **Service settings** → **Custom Domains**
-2. Add your custom domain
-3. Configure DNS records
-4. Update Netlify environment variables
+##### Custom Domain on Heroku
+```bash
+# Add custom domain
+heroku domains:add www.yourdomain.com
+
+# Configure DNS records as instructed
+# Update Vercel environment variables with new backend URL
+```
 
 ### 🔧 Troubleshooting Deployment Issues
 
-#### Backend (Render) Issues
+#### Backend (Heroku) Issues
 ```bash
 # Check logs
-# Go to Render dashboard → Service → Logs tab
+heroku logs --tail
 
 # Common fixes:
-# 1. Environment variables not set
-# 2. Database connection issues
-# 3. Static files not collected
-# 4. Migration errors
+# 1. Environment variables not set: heroku config
+# 2. Database connection issues: heroku pg:info
+# 3. Static files not collected: heroku run python manage.py collectstatic
+# 4. Migration errors: heroku run python manage.py migrate --fake-initial
 ```
 
-#### Frontend (Netlify) Issues
+#### Frontend (Vercel) Issues
 ```bash
-# Check deploy logs
-# Go to Netlify dashboard → Site → Deploy tab
+# Check deployment logs in Vercel dashboard
+# Settings → Deployments → Click on failed deployment
 
 # Common fixes:
-# 1. REACT_APP_API_URL not set
-# 2. Build command failures
-# 3. Node version compatibility
+# 1. REACT_APP_API_URL not set in environment variables
+# 2. Build command failures: check build logs
+# 3. Node version compatibility: verify node version
 ```
 
 #### CORS Issues
-1. Verify `CORS_ALLOWED_ORIGINS` in Render matches Netlify URL exactly
+1. Verify `CORS_ALLOWED_ORIGINS` in Heroku matches Vercel URL exactly
 2. Check for `https://` vs `http://` mismatch
 3. Ensure no trailing slashes in URLs
+4. Redeploy backend after updating CORS: `git push heroku main`
 
 ### 📊 Deployment Checklist
 
-- [ ] **Render Account**: Created and connected to GitHub
-- [ ] **Blueprint**: Deployed successfully with database
+- [ ] **Heroku Account**: Created and CLI installed
+- [ ] **Heroku App**: Created with PostgreSQL database
+- [ ] **Backend Deployed**: Successfully pushed to Heroku
+- [ ] **Database Migrations**: Run successfully
 - [ ] **Backend URL**: Noted for frontend configuration
-- [ ] **Netlify Account**: Created and connected to GitHub
-- [ ] **Frontend Build**: Configured with correct settings
+- [ ] **Vercel Account**: Created and connected to GitHub
+- [ ] **Frontend Deployed**: Successfully deployed to Vercel
 - [ ] **Environment Variables**: REACT_APP_API_URL set correctly
-- [ ] **CORS Settings**: Updated in Render with Netlify URL
+- [ ] **CORS Settings**: Updated in Heroku with Vercel URL
 - [ ] **API Testing**: All endpoints working in production
 - [ ] **User Registration**: Working end-to-end
 - [ ] **SSL Certificates**: Active on both services
 
-### Manual Deployment Steps
+### Quick Deployment Commands
 
-#### Backend Deployment (Render)
+#### Backend (Heroku)
+```bash
+# One-time setup
+heroku create bug-reporting-backend
+heroku addons:create heroku-postgresql:hobby-dev
+heroku git:remote -a bug-reporting-backend
 
-1. **Connect Repository**:
-   - Go to [Render Dashboard](https://dashboard.render.com)
-   - Click "New" → "Blueprint"
-   - Connect your GitHub repository
+# Deploy
+git push heroku main
+heroku run python manage.py migrate
 
-2. **Deploy Service**:
-   - Render will automatically detect `render.yaml`
-   - Database will be created automatically
-   - Service will build and deploy
+# View logs
+heroku logs --tail
 
-3. **Environment Setup**:
-   - All environment variables are pre-configured
-   - CORS is set to allow the Netlify frontend
+# Set environment variables
+heroku config:set CORS_ALLOWED_ORIGINS=https://your-frontend.vercel.app
+```
 
-#### Frontend Deployment (Netlify)
+#### Frontend (Vercel)
+```bash
+# Deploy via Vercel CLI
+npm i -g vercel
+vercel --prod
 
-1. **Connect Repository**:
-   - Go to [Netlify Dashboard](https://app.netlify.com)
-   - Click "Add new site" → "Import an existing project"
-   - Connect your GitHub repository
-
-2. **Deploy Configuration**:
-   - Netlify will automatically detect `netlify.toml`
-   - Build command: `npm run build`
-   - Publish directory: `build`
-
-3. **Environment Variables**:
-   - `REACT_APP_API_URL`: Set to your Render backend URL
-   - Example: `https://your-backend.onrender.com/api`
+# Or deploy via GitHub (automatic)
+# Push to main branch and Vercel will auto-deploy
+```
 
 ### Production URLs
 
-After deployment, update the following URLs in your deployed services:
+After deployment, your application will be available at:
 
-- **Backend**: `https://your-backend.onrender.com`
-- **Frontend**: `https://your-frontend.netlify.app`
-- **API Docs**: `https://your-backend.onrender.com/api/docs/`
+- **Frontend**: `https://your-project.vercel.app`
+- **Backend API**: `https://bug-reporting-backend.herokuapp.com`
+- **API Docs**: `https://bug-reporting-backend.herokuapp.com/api/docs/`
 
 ### Environment Variables for Production
 
-#### Backend (.env.production)
+#### Backend (Heroku)
 ```bash
 DEBUG=False
 SECRET_KEY=your-generated-secret-key
 DB_ENGINE=django.db.backends.postgresql
-DB_NAME=bug_tracking
-DB_USER=postgres
-DB_PASSWORD=your-db-password
-DB_HOST=your-db-host
-DB_PORT=5432
-CORS_ALLOWED_ORIGINS=https://your-frontend.netlify.app
-ALLOWED_HOSTS=your-backend.onrender.com
+CORS_ALLOWED_ORIGINS=https://your-project.vercel.app
+ALLOWED_HOSTS=bug-reporting-backend.herokuapp.com
 ```
 
-#### Frontend Environment
+#### Frontend (Vercel)
 ```bash
-REACT_APP_API_URL=https://your-backend.onrender.com/api
+REACT_APP_API_URL=https://bug-reporting-backend.herokuapp.com/api
 ```
 
 ### Deployment Checklist
 
-- [ ] Backend deployed on Render
-- [ ] Frontend deployed on Netlify
+- [ ] Backend deployed on Heroku
+- [ ] Frontend deployed on Vercel
 - [ ] Environment variables configured
 - [ ] CORS settings updated
 - [ ] Database migrations run
