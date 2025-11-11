@@ -540,23 +540,222 @@ jobs:
         uses: codecov/codecov-action@v3
 ```
 
-## Deployment
+## 🚀 Deployment
 
-### Render (Backend)
+### 🚀 Step-by-Step Deployment Guide
 
-1. Push code to GitHub
-2. Create new Web Service on Render
-3. Connect GitHub repository
-4. Set environment variables
-5. Deploy
+#### **Phase 1: Backend Deployment (Render)**
 
-### Netlify (Frontend)
+##### Step 1: Create Render Account & Connect Repository
+1. Go to [https://dashboard.render.com](https://dashboard.render.com)
+2. Sign up/Login with GitHub account
+3. Click **"New"** → **"Blueprint"**
+4. Connect your GitHub repository: `mangeshraut712/Bug-Reporting-System`
+5. Render will automatically detect `render.yaml`
 
-1. Build frontend: `npm run build`
-2. Connect GitHub repository to Netlify
-3. Set build command: `npm run build`
-4. Set publish directory: `build`
-5. Deploy
+##### Step 2: Configure Blueprint Deployment
+1. **Service Name**: `bug-reporting-backend` (auto-detected)
+2. **Branch**: `main` (default)
+3. **Database**: PostgreSQL will be auto-created
+4. Click **"Create Blueprint"**
+
+##### Step 3: Monitor Initial Deployment
+1. Wait for database creation (2-3 minutes)
+2. Backend service will build automatically
+3. Check logs for any errors
+4. Once deployed, note the service URL: `https://your-service.onrender.com`
+
+##### Step 4: Run Database Migrations
+```bash
+# In Render service shell (via dashboard)
+python manage.py migrate
+python manage.py collectstatic --noinput
+```
+
+#### **Phase 2: Frontend Deployment (Netlify)**
+
+##### Step 1: Create Netlify Account & Connect Repository
+1. Go to [https://app.netlify.com](https://app.netlify.com)
+2. Sign up/Login with GitHub account
+3. Click **"Add new site"** → **"Import an existing project"**
+4. Connect your GitHub repository: `mangeshraut712/Bug-Reporting-System`
+
+##### Step 2: Configure Build Settings
+1. **Branch**: `main`
+2. **Build command**: `npm run build` (auto-detected from netlify.toml)
+3. **Publish directory**: `build` (auto-detected)
+4. **Environment variables**: Add `REACT_APP_API_URL`
+
+##### Step 3: Set Environment Variables
+```
+REACT_APP_API_URL=https://your-backend-service.onrender.com/api
+```
+Replace `your-backend-service` with your actual Render service name.
+
+##### Step 4: Deploy Frontend
+1. Click **"Deploy site"**
+2. Wait for build completion (2-3 minutes)
+3. Note the frontend URL: `https://your-site.netlify.app`
+
+#### **Phase 3: Post-Deployment Configuration**
+
+##### Step 1: Update CORS Settings in Render
+1. Go to your Render service dashboard
+2. Navigate to **Environment**
+3. Update `CORS_ALLOWED_ORIGINS`:
+```
+CORS_ALLOWED_ORIGINS=https://your-frontend-site.netlify.app
+```
+
+##### Step 2: Test API Connectivity
+1. Visit your frontend URL
+2. Try to register a new user
+3. Check browser developer tools for any CORS errors
+4. Verify API calls are working
+
+##### Step 3: Create Admin User
+```bash
+# In Render service shell
+python manage.py createsuperuser
+```
+
+##### Step 4: Verify Production Setup
+- ✅ Frontend loads without errors
+- ✅ User registration works
+- ✅ API endpoints respond correctly
+- ✅ No CORS errors in browser console
+- ✅ SSL certificates active (automatic on both platforms)
+
+#### **Phase 4: Domain Configuration (Optional)**
+
+##### Custom Domain on Netlify
+1. Go to **Site settings** → **Domain management**
+2. Add custom domain
+3. Configure DNS records as instructed
+4. Update Render CORS settings with new domain
+
+##### Custom Domain on Render
+1. Go to **Service settings** → **Custom Domains**
+2. Add your custom domain
+3. Configure DNS records
+4. Update Netlify environment variables
+
+### 🔧 Troubleshooting Deployment Issues
+
+#### Backend (Render) Issues
+```bash
+# Check logs
+# Go to Render dashboard → Service → Logs tab
+
+# Common fixes:
+# 1. Environment variables not set
+# 2. Database connection issues
+# 3. Static files not collected
+# 4. Migration errors
+```
+
+#### Frontend (Netlify) Issues
+```bash
+# Check deploy logs
+# Go to Netlify dashboard → Site → Deploy tab
+
+# Common fixes:
+# 1. REACT_APP_API_URL not set
+# 2. Build command failures
+# 3. Node version compatibility
+```
+
+#### CORS Issues
+1. Verify `CORS_ALLOWED_ORIGINS` in Render matches Netlify URL exactly
+2. Check for `https://` vs `http://` mismatch
+3. Ensure no trailing slashes in URLs
+
+### 📊 Deployment Checklist
+
+- [ ] **Render Account**: Created and connected to GitHub
+- [ ] **Blueprint**: Deployed successfully with database
+- [ ] **Backend URL**: Noted for frontend configuration
+- [ ] **Netlify Account**: Created and connected to GitHub
+- [ ] **Frontend Build**: Configured with correct settings
+- [ ] **Environment Variables**: REACT_APP_API_URL set correctly
+- [ ] **CORS Settings**: Updated in Render with Netlify URL
+- [ ] **API Testing**: All endpoints working in production
+- [ ] **User Registration**: Working end-to-end
+- [ ] **SSL Certificates**: Active on both services
+
+### Manual Deployment Steps
+
+#### Backend Deployment (Render)
+
+1. **Connect Repository**:
+   - Go to [Render Dashboard](https://dashboard.render.com)
+   - Click "New" → "Blueprint"
+   - Connect your GitHub repository
+
+2. **Deploy Service**:
+   - Render will automatically detect `render.yaml`
+   - Database will be created automatically
+   - Service will build and deploy
+
+3. **Environment Setup**:
+   - All environment variables are pre-configured
+   - CORS is set to allow the Netlify frontend
+
+#### Frontend Deployment (Netlify)
+
+1. **Connect Repository**:
+   - Go to [Netlify Dashboard](https://app.netlify.com)
+   - Click "Add new site" → "Import an existing project"
+   - Connect your GitHub repository
+
+2. **Deploy Configuration**:
+   - Netlify will automatically detect `netlify.toml`
+   - Build command: `npm run build`
+   - Publish directory: `build`
+
+3. **Environment Variables**:
+   - `REACT_APP_API_URL`: Set to your Render backend URL
+   - Example: `https://your-backend.onrender.com/api`
+
+### Production URLs
+
+After deployment, update the following URLs in your deployed services:
+
+- **Backend**: `https://your-backend.onrender.com`
+- **Frontend**: `https://your-frontend.netlify.app`
+- **API Docs**: `https://your-backend.onrender.com/api/docs/`
+
+### Environment Variables for Production
+
+#### Backend (.env.production)
+```bash
+DEBUG=False
+SECRET_KEY=your-generated-secret-key
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=bug_tracking
+DB_USER=postgres
+DB_PASSWORD=your-db-password
+DB_HOST=your-db-host
+DB_PORT=5432
+CORS_ALLOWED_ORIGINS=https://your-frontend.netlify.app
+ALLOWED_HOSTS=your-backend.onrender.com
+```
+
+#### Frontend Environment
+```bash
+REACT_APP_API_URL=https://your-backend.onrender.com/api
+```
+
+### Deployment Checklist
+
+- [ ] Backend deployed on Render
+- [ ] Frontend deployed on Netlify
+- [ ] Environment variables configured
+- [ ] CORS settings updated
+- [ ] Database migrations run
+- [ ] API endpoints tested
+- [ ] Frontend connects to backend
+- [ ] SSL certificates active
 
 ## Troubleshooting
 
