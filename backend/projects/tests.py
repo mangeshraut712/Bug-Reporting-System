@@ -82,3 +82,67 @@ class TestProjectEndpoints:
         response = api_client.delete(f'/api/projects/{project.id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert not Project.objects.filter(id=project.id).exists()
+
+    def test_get_project_issues(self, authenticated_client, project):
+        """
+        Test getting issues for a project.
+        """
+        api_client, user = authenticated_client
+        from issues.models import Issue
+        Issue.objects.create(
+            title='Issue 1',
+            description='First issue',
+            status='open',
+            priority='high',
+            project=project,
+            reporter=user
+        )
+        Issue.objects.create(
+            title='Issue 2',
+            description='Second issue',
+            status='closed',
+            priority='low',
+            project=project,
+            reporter=user
+        )
+        response = api_client.get(f'/api/projects/{project.id}/issues/')
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 2
+
+    def test_get_project_issues_filtered_by_status(self, authenticated_client, project):
+        """
+        Test filtering project issues by status.
+        """
+        api_client, user = authenticated_client
+        from issues.models import Issue
+        Issue.objects.create(
+            title='Open Issue',
+            description='An open issue',
+            status='open',
+            priority='high',
+            project=project,
+            reporter=user
+        )
+        Issue.objects.create(
+            title='Closed Issue',
+            description='A closed issue',
+            status='closed',
+            priority='low',
+            project=project,
+            reporter=user
+        )
+        response = api_client.get(f'/api/projects/{project.id}/issues/?status=open')
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 1
+        assert response.data[0]['status'] == 'open'
+
+    def test_create_project_unauthenticated(self, api_client):
+        """
+        Test creating a project without authentication.
+        """
+        data = {
+            'name': 'Test Project',
+            'description': 'A test project',
+        }
+        response = api_client.post('/api/projects/', data)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED

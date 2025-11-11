@@ -101,3 +101,60 @@ class TestCommentEndpoints:
         response = api_client.delete(f'/api/comments/{comment.id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert not Comment.objects.filter(id=comment.id).exists()
+
+    def test_create_comment_for_issue(self, authenticated_client, issue):
+        """
+        Test creating a comment for a specific issue via standard endpoint.
+        """
+        api_client, user = authenticated_client
+        data = {
+            'content': 'Issue-specific comment',
+            'issue': issue.id,
+        }
+        response = api_client.post('/api/comments/', data)
+        assert response.status_code == status.HTTP_201_CREATED
+        assert Comment.objects.filter(content='Issue-specific comment', issue=issue).exists()
+
+    def test_list_comments_by_issue(self, authenticated_client, issue, user):
+        """
+        Test listing comments filtered by issue.
+        """
+        api_client, _ = authenticated_client
+        Comment.objects.create(
+            content='Comment 1',
+            issue=issue,
+            author=user
+        )
+        Comment.objects.create(
+            content='Comment 2',
+            issue=issue,
+            author=user
+        )
+        response = api_client.get(f'/api/comments/?issue_id={issue.id}')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 2
+
+    def test_create_comment_unauthenticated(self, api_client, issue):
+        """
+        Test creating a comment without authentication.
+        """
+        data = {
+            'content': 'Test comment',
+            'issue': issue.id,
+        }
+        response = api_client.post('/api/comments/', data)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_comment_author_set_automatically(self, authenticated_client, issue):
+        """
+        Test that comment author is set to current user automatically.
+        """
+        api_client, user = authenticated_client
+        data = {
+            'content': 'Test comment',
+            'issue': issue.id,
+        }
+        response = api_client.post('/api/comments/', data)
+        assert response.status_code == status.HTTP_201_CREATED
+        comment = Comment.objects.get(content='Test comment')
+        assert comment.author == user

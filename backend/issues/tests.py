@@ -118,3 +118,77 @@ class TestIssueEndpoints:
         response = api_client.delete(f'/api/issues/{issue.id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert not Issue.objects.filter(id=issue.id).exists()
+
+    def test_create_issue_for_project(self, authenticated_client, project):
+        """
+        Test creating an issue for a specific project via standard endpoint.
+        """
+        api_client, user = authenticated_client
+        data = {
+            'title': 'Project Issue',
+            'description': 'An issue for the project',
+            'priority': 'critical',
+            'project': project.id,
+        }
+        response = api_client.post('/api/issues/', data)
+        assert response.status_code == status.HTTP_201_CREATED
+        assert Issue.objects.filter(title='Project Issue', project=project).exists()
+
+    def test_update_issue_status_by_reporter(self, authenticated_client, project, user):
+        """
+        Test that reporter can update issue status.
+        """
+        api_client, _ = authenticated_client
+        issue = Issue.objects.create(
+            title='Test Issue',
+            description='A test issue',
+            project=project,
+            reporter=user,
+            status='open'
+        )
+        data = {'status': 'in_progress'}
+        response = api_client.patch(f'/api/issues/{issue.id}/update_status/', data)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['status'] == 'in_progress'
+
+    def test_issue_status_choices(self, authenticated_client, project, user):
+        """
+        Test that valid status choices are accepted.
+        """
+        api_client, _ = authenticated_client
+        issue = Issue.objects.create(
+            title='Test Issue',
+            description='A test issue',
+            project=project,
+            reporter=user
+        )
+        data = {'status': 'closed'}
+        response = api_client.patch(f'/api/issues/{issue.id}/update_status/', data)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['status'] == 'closed'
+
+    def test_issue_priority_choices(self, authenticated_client, project):
+        """
+        Test that only valid priority choices are accepted.
+        """
+        api_client, user = authenticated_client
+        data = {
+            'title': 'Test Issue',
+            'description': 'A test issue',
+            'priority': 'invalid_priority',
+            'project': project.id,
+        }
+        response = api_client.post('/api/issues/', data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_create_issue_unauthenticated(self, api_client, project):
+        """
+        Test creating an issue without authentication.
+        """
+        data = {
+            'title': 'Test Issue',
+            'description': 'A test issue',
+            'project': project.id,
+        }
+        response = api_client.post('/api/issues/', data)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
