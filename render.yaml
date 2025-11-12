@@ -2,9 +2,8 @@ services:
   # PostgreSQL Database
   - type: pserv
     name: bug-reporting-db
-    env: postgres
     plan: starter
-    # Database will be automatically created and connection string provided
+    # Database will be automatically created and DATABASE_URL provided
 
   # Django Backend API
   - type: web
@@ -20,11 +19,7 @@ services:
         generateValue: true
       - key: DJANGO_SETTINGS_MODULE
         value: bug_tracking.settings
-      - key: DATABASE_URL
-        fromService:
-          type: pserv
-          name: bug-reporting-db
-          property: connectionString
+      # DATABASE_URL is automatically provided by the pserv
       - key: CORS_ALLOWED_ORIGINS
         fromService:
           type: web
