@@ -1,6 +1,6 @@
 services:
   # PostgreSQL Database
-  - type: pserv
+  - type: postgres
     name: bug-reporting-db
     plan: starter
     # Database will be automatically created and DATABASE_URL provided
@@ -19,17 +19,11 @@ services:
         generateValue: true
       - key: DJANGO_SETTINGS_MODULE
         value: bug_tracking.settings
-      # DATABASE_URL is automatically provided by the pserv
+      # DATABASE_URL is automatically provided by the postgres service
       - key: CORS_ALLOWED_ORIGINS
-        fromService:
-          type: web
-          name: bug-reporting-frontend
-          property: host
+        value: https://bug-reporting-frontend.onrender.com
       - key: ALLOWED_HOSTS
-        fromService:
-          type: web
-          name: bug-reporting-frontend
-          property: host
+        value: bug-reporting-backend.onrender.com
 
   # React Frontend
   - type: web
@@ -40,10 +34,7 @@ services:
     startCommand: "cd frontend && npx serve -s build -l $PORT"
     envVars:
       - key: REACT_APP_API_URL
-        fromService:
-          type: web
-          name: bug-reporting-backend
-          property: host
+        value: https://bug-reporting-backend.onrender.com/api
       - key: NODE_ENV
         value: production
 
