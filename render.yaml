@@ -1,6 +1,6 @@
 services:
   # PostgreSQL Database
-  - type: postgres
+  - type: pserv
     name: bug-reporting-db
     plan: starter
     # Database will be automatically created and DATABASE_URL provided
