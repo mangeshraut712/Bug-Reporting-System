@@ -1,0 +1,14 @@
+backend/
+docker-compose.yml
+Dockerfile
+.env.example
+.git
+.gitignore
+README.md
+*.md
+.pytest_cache
+htmlcov
+__pycache__
+*.pyc
+.DS_Store
+node_modules

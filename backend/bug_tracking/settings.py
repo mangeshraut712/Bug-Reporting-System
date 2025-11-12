@@ -15,7 +15,10 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-pro
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = config(
+    'ALLOWED_HOSTS',
+    default='localhost,127.0.0.1,bug-reporting-backend.herokuapp.com'
+).split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -136,7 +139,7 @@ SIMPLE_JWT = {
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000'
+    default='http://localhost:3000,http://127.0.0.1:3000,https://bug-reporting-system.vercel.app'
 ).split(',')
 
 # Spectacular (Swagger) Configuration
@@ -144,7 +147,7 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Bug Reporting System API',
     'DESCRIPTION': 'A comprehensive bug tracking API',
     'VERSION': '1.0.0',
-    'SERVE_PERMISSIONS': ['rest_framework.permissions.IsAuthenticated'],
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
 }
 
 # dj-rest-auth Configuration

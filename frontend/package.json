@@ -13,14 +13,11 @@
     "tailwindcss": "^3.3.6"
   },
   "devDependencies": {
-    "ajv": "^8.12.0",
     "autoprefixer": "^10.4.16",
-    "npm-force-resolutions": "^0.0.10",
     "postcss": "^8.4.32",
     "react-scripts": "^5.0.1"
   },
   "scripts": {
-    "preinstall": "npx npm-force-resolutions",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
@@ -42,8 +39,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "resolutions": {
-    "ajv": "^8.12.0"
   }
 }

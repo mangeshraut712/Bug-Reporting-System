@@ -1,0 +1,13 @@
+frontend/
+docker-compose.yml
+Dockerfile
+.env.example
+.git
+.gitignore
+*.md
+.pytest_cache
+htmlcov
+.DS_Store
+node_modules
+vercel.json
+.vercelignore

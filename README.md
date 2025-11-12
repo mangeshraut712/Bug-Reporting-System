@@ -563,7 +563,7 @@ heroku addons:create heroku-postgresql:hobby-dev
 # Set environment variables
 heroku config:set DEBUG=False
 heroku config:set SECRET_KEY=$(python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
-heroku config:set CORS_ALLOWED_ORIGINS=https://your-frontend.vercel.app
+heroku config:set CORS_ALLOWED_ORIGINS=https://bug-reporting-system.vercel.app
 ```
 
 ##### Step 3: Deploy Backend
@@ -614,14 +614,14 @@ curl https://bug-reporting-backend.herokuapp.com/api/projects/
 ##### Step 4: Deploy Frontend
 1. Click **"Deploy"**
 2. Wait for build completion (2-3 minutes)
-3. Note the frontend URL: `https://your-project.vercel.app`
+3. Note the frontend URL: `https://bug-reporting-system.vercel.app`
 
 #### **Phase 3: Post-Deployment Configuration**
 
 ##### Step 1: Update Backend CORS Settings
 ```bash
 # Update CORS to allow Vercel frontend
-heroku config:set CORS_ALLOWED_ORIGINS=https://your-project.vercel.app
+heroku config:set CORS_ALLOWED_ORIGINS=https://bug-reporting-system.vercel.app
 ```
 
 ##### Step 2: Test API Connectivity
@@ -717,7 +717,7 @@ heroku run python manage.py migrate
 heroku logs --tail
 
 # Set environment variables
-heroku config:set CORS_ALLOWED_ORIGINS=https://your-frontend.vercel.app
+heroku config:set CORS_ALLOWED_ORIGINS=https://bug-reporting-system.vercel.app
 ```
 
 #### Frontend (Vercel)
@@ -734,7 +734,7 @@ vercel --prod
 
 After deployment, your application will be available at:
 
-- **Frontend**: `https://your-project.vercel.app`
+- **Frontend**: `https://bug-reporting-system.vercel.app`
 - **Backend API**: `https://bug-reporting-backend.herokuapp.com`
 - **API Docs**: `https://bug-reporting-backend.herokuapp.com/api/docs/`
 
@@ -745,7 +745,7 @@ After deployment, your application will be available at:
 DEBUG=False
 SECRET_KEY=your-generated-secret-key
 DB_ENGINE=django.db.backends.postgresql
-CORS_ALLOWED_ORIGINS=https://your-project.vercel.app
+CORS_ALLOWED_ORIGINS=https://bug-reporting-system.vercel.app
 ALLOWED_HOSTS=bug-reporting-backend.herokuapp.com
 ```
 
