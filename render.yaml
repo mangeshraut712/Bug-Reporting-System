@@ -1,10 +1,4 @@
 services:
-  # PostgreSQL Database
-  - type: pserv
-    name: bug-reporting-db
-    plan: starter
-    # Database will be automatically created and DATABASE_URL provided
-
   # Django Backend API
   - type: web
     name: bug-reporting-backend
@@ -19,7 +13,7 @@ services:
         generateValue: true
       - key: DJANGO_SETTINGS_MODULE
         value: bug_tracking.settings
-      # DATABASE_URL is automatically provided by the postgres service
+      # DATABASE_URL needs to be set manually from Render PostgreSQL database
       - key: CORS_ALLOWED_ORIGINS
         value: https://bug-reporting-frontend.onrender.com
       - key: ALLOWED_HOSTS
