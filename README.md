@@ -781,6 +781,24 @@ REACT_APP_API_URL=https://bug-reporting-backend.herokuapp.com/api
 - Ensure PostgreSQL service is running
 - Check database name and user permissions
 
+---
+
+<!-- codex:project-diagram:start -->
+
+## Project Diagram
+
+```mermaid
+flowchart LR
+    A["Browser"] --> B["Frontend"]
+    B --> C["Backend / API"]
+    C --> D["Data / Services"]
+    B -. feedback .-> A
+```
+
+_Main application path from user interface through backend services._
+
+<!-- codex:project-diagram:end -->
+
 ## Contributing
 
 1. Fork the repository
