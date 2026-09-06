@@ -158,7 +158,7 @@ const IssueListPage = () => {
               <Link
                 key={issue.id}
                 to={`/issues/${issue.id}`}
-                className="bg-white rounded-lg shadow hover:shadow-lg transition p-6 cursor-pointer"
+                className="block bg-white rounded-lg shadow hover:shadow-lg transition p-6 cursor-pointer border border-gray-100"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">

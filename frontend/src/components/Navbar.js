@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { LogOut, Menu, X } from 'lucide-react';
 
 const Navbar = () => {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, isDemo } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = React.useState(false);
 
@@ -34,6 +34,11 @@ const Navbar = () => {
                 >
                   Dashboard
                 </Link>
+                {isDemo && (
+                  <span className="text-xs font-medium uppercase tracking-wide bg-amber-100 text-amber-800 px-2 py-1 rounded">
+                    Demo
+                  </span>
+                )}
                 <span className="text-gray-700">
                   Welcome, {user?.first_name || user?.email}
                 </span>

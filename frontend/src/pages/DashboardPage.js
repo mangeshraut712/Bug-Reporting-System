@@ -51,7 +51,7 @@ const DashboardPage = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900">Projects</h1>
-            <p className="text-gray-600 mt-2">Manage your bug tracking projects</p>
+            <p className="text-gray-600 mt-2">Open a project to filter, create, and track issues</p>
           </div>
           <button
             onClick={() => setShowModal(true)}
@@ -80,7 +80,7 @@ const DashboardPage = () => {
               <Link
                 key={project.id}
                 to={`/projects/${project.id}/issues`}
-                className="bg-white rounded-lg shadow hover:shadow-lg transition p-6 cursor-pointer"
+                className="block bg-white rounded-lg shadow hover:shadow-lg transition p-6 cursor-pointer border border-gray-100"
               >
                 <div className="flex items-start justify-between mb-4">
                   <Folder className="text-blue-600" size={32} />
@@ -88,7 +88,9 @@ const DashboardPage = () => {
                 <h3 className="text-xl font-bold text-gray-900 mb-2">{project.name}</h3>
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">{project.description}</p>
                 <div className="flex items-center justify-between text-sm text-gray-500">
-                  <span>{project.issue_count} issues</span>
+                  <span>
+                    {project.issue_count} {project.issue_count === 1 ? 'issue' : 'issues'}
+                  </span>
                   <span>{new Date(project.created_at).toLocaleDateString()}</span>
                 </div>
               </Link>
