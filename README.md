@@ -8,6 +8,10 @@
 
 A modern, scalable bug tracking application built with cutting-edge technologies. Streamline issue management, enhance team collaboration, and boost productivity with advanced features and best practices.
 
+**Live frontend (GitHub Pages):** https://mangeshraut712.github.io/Bug-Reporting-System/
+
+The React UI is a static Create React App build and is hosted on GitHub Pages (base path `/Bug-Reporting-System/`). The Django REST API, PostgreSQL, and JWT auth **cannot** run on Pages. Point `REACT_APP_API_URL` (GitHub Actions variable) at a free backend host such as Render, Railway, or Fly.io, and add the Pages origin to `CORS_ALLOWED_ORIGINS`.
+
 ## ✨ Key Features
 
 ### 🔐 **Advanced Authentication & Security**
@@ -541,6 +545,16 @@ jobs:
 ```
 
 ## 🚀 Deployment
+
+### Frontend: GitHub Pages (current)
+
+The paused Vercel site is replaced by GitHub Pages + Actions (`.github/workflows/pages.yml`).
+
+1. Push to `main` (or run **Deploy GitHub Pages** manually).
+2. The workflow builds `frontend/` with `PUBLIC_URL=/Bug-Reporting-System/` and deploys `frontend/build`.
+3. Site URL: https://mangeshraut712.github.io/Bug-Reporting-System/
+
+**Still needs a free backend:** Django + PostgreSQL (this repo’s `backend/`). GitHub Pages only serves the static React app. Until an API is deployed, login/register/issue calls will fail against a missing `REACT_APP_API_URL`.
 
 ### 🚀 Step-by-Step Deployment Guide
 

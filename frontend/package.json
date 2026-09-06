@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Bug Reporting System Frontend",
   "private": true,
+  "homepage": "https://mangeshraut712.github.io/Bug-Reporting-System/",
   "dependencies": {
     "axios": "^1.6.2",
     "lucide-react": "^0.292.0",
@@ -20,6 +21,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "postbuild": "node -e \"require('fs').copyFileSync('build/index.html','build/404.html')\"",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
