@@ -13,9 +13,11 @@ import DashboardPage from './pages/DashboardPage';
 import IssueListPage from './pages/IssueListPage';
 import IssueDetailPage from './pages/IssueDetailPage';
 
+const routerBasename = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
+
 function App() {
   return (
-    <Router>
+    <Router basename={routerBasename || undefined}>
       <AuthProvider>
         <div className="min-h-screen bg-gray-50">
           <Navbar />
