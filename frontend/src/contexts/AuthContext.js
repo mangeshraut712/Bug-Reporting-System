@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { authAPI } from '../services/api';
+import { DEMO_USER, disableDemoMode, enableDemoMode, isDemoMode } from '../services/demoStore';
 
 export const AuthContext = createContext();
 
@@ -24,6 +25,11 @@ export const AuthProvider = ({ children }) => {
 
   // Check if user is already logged in on mount
   useEffect(() => {
+    if (isDemoMode()) {
+      setUser(DEMO_USER);
+      setLoading(false);
+      return;
+    }
     const token = localStorage.getItem('access_token');
     if (token) {
       fetchCurrentUser();
@@ -31,6 +37,14 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }
   }, [fetchCurrentUser]);
+
+  const enterDemo = useCallback(() => {
+    enableDemoMode();
+    setUser(DEMO_USER);
+    setError(null);
+    setLoading(false);
+    return true;
+  }, []);
 
   const login = useCallback(async (email, password) => {
     setLoading(true);
@@ -72,6 +86,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
+      disableDemoMode();
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       setUser(null);
@@ -85,6 +100,8 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    enterDemo,
+    isDemo: isDemoMode(),
     isAuthenticated: !!user,
   };
 

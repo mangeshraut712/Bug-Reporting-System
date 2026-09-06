@@ -1,4 +1,11 @@
 import axios from 'axios';
+import {
+  demoAuthAPI,
+  demoCommentsAPI,
+  demoIssuesAPI,
+  demoProjectsAPI,
+  isDemoMode,
+} from './demoStore';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
@@ -25,7 +32,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isDemoMode()) {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       const base = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
@@ -37,46 +44,62 @@ api.interceptors.response.use(
 
 // Auth API calls
 export const authAPI = {
-  register: (data) => api.post('/auth/register/', data),
-  login: (email, password) => api.post('/auth/login/', { email, password }),
-  logout: () => api.post('/auth/logout/'),
-  getCurrentUser: () => api.get('/auth/users/me/'),
+  register: (data) => (isDemoMode() ? demoAuthAPI.register(data) : api.post('/auth/register/', data)),
+  login: (email, password) =>
+    isDemoMode() ? demoAuthAPI.login(email, password) : api.post('/auth/login/', { email, password }),
+  logout: () => (isDemoMode() ? demoAuthAPI.logout() : api.post('/auth/logout/')),
+  getCurrentUser: () => (isDemoMode() ? demoAuthAPI.getCurrentUser() : api.get('/auth/users/me/')),
 };
 
 // Projects API calls
 export const projectsAPI = {
-  list: () => api.get('/projects/'),
-  create: (data) => api.post('/projects/', data),
-  retrieve: (id) => api.get(`/projects/${id}/`),
-  update: (id, data) => api.patch(`/projects/${id}/`, data),
-  delete: (id) => api.delete(`/projects/${id}/`),
-  getIssues: (id, params = {}) => api.get(`/projects/${id}/issues/`, { params }),
+  list: () => (isDemoMode() ? demoProjectsAPI.list() : api.get('/projects/')),
+  create: (data) => (isDemoMode() ? demoProjectsAPI.create(data) : api.post('/projects/', data)),
+  retrieve: (id) => (isDemoMode() ? demoProjectsAPI.retrieve(id) : api.get(`/projects/${id}/`)),
+  update: (id, data) =>
+    isDemoMode() ? demoProjectsAPI.update(id, data) : api.patch(`/projects/${id}/`, data),
+  delete: (id) => (isDemoMode() ? demoProjectsAPI.delete(id) : api.delete(`/projects/${id}/`)),
+  getIssues: (id, params = {}) =>
+    isDemoMode()
+      ? demoProjectsAPI.getIssues(id, params)
+      : api.get(`/projects/${id}/issues/`, { params }),
 };
 
 // Issues API calls
 export const issuesAPI = {
-  list: (params = {}) => api.get('/issues/', { params }),
-  create: (data) => api.post('/issues/', data),
-  retrieve: (id) => api.get(`/issues/${id}/`),
-  update: (id, data) => api.patch(`/issues/${id}/`, data),
-  delete: (id) => api.delete(`/issues/${id}/`),
-  createForProject: (projectId, data) => 
-    api.post(`/issues/create-for-project/${projectId}/`, data),
-  updateStatus: (id, status) => 
-    api.patch(`/issues/${id}/update_status/`, { status }),
-  assign: (id, assigneeId) => 
-    api.patch(`/issues/${id}/assign/`, { assignee_id: assigneeId }),
+  list: (params = {}) => (isDemoMode() ? demoIssuesAPI.list(params) : api.get('/issues/', { params })),
+  create: (data) => (isDemoMode() ? demoIssuesAPI.create(data) : api.post('/issues/', data)),
+  retrieve: (id) => (isDemoMode() ? demoIssuesAPI.retrieve(id) : api.get(`/issues/${id}/`)),
+  update: (id, data) =>
+    isDemoMode() ? demoIssuesAPI.update(id, data) : api.patch(`/issues/${id}/`, data),
+  delete: (id) => (isDemoMode() ? demoIssuesAPI.delete(id) : api.delete(`/issues/${id}/`)),
+  createForProject: (projectId, data) =>
+    isDemoMode()
+      ? demoIssuesAPI.createForProject(projectId, data)
+      : api.post(`/issues/create-for-project/${projectId}/`, data),
+  updateStatus: (id, status) =>
+    isDemoMode()
+      ? demoIssuesAPI.updateStatus(id, status)
+      : api.patch(`/issues/${id}/update_status/`, { status }),
+  assign: (id, assigneeId) =>
+    isDemoMode()
+      ? demoIssuesAPI.assign(id, assigneeId)
+      : api.patch(`/issues/${id}/assign/`, { assignee_id: assigneeId }),
 };
 
 // Comments API calls
 export const commentsAPI = {
-  list: (params = {}) => api.get('/comments/', { params }),
-  create: (data) => api.post('/comments/', data),
-  retrieve: (id) => api.get(`/comments/${id}/`),
-  update: (id, data) => api.patch(`/comments/${id}/`, data),
-  delete: (id) => api.delete(`/comments/${id}/`),
-  createForIssue: (issueId, data) => 
-    api.post(`/comments/create-for-issue/${issueId}/`, data),
+  list: (params = {}) =>
+    isDemoMode() ? demoCommentsAPI.list(params) : api.get('/comments/', { params }),
+  create: (data) => (isDemoMode() ? demoCommentsAPI.create(data) : api.post('/comments/', data)),
+  retrieve: (id) => (isDemoMode() ? demoCommentsAPI.retrieve(id) : api.get(`/comments/${id}/`)),
+  update: (id, data) =>
+    isDemoMode() ? demoCommentsAPI.update(id, data) : api.patch(`/comments/${id}/`, data),
+  delete: (id) => (isDemoMode() ? demoCommentsAPI.delete(id) : api.delete(`/comments/${id}/`)),
+  createForIssue: (issueId, data) =>
+    isDemoMode()
+      ? demoCommentsAPI.createForIssue(issueId, data)
+      : api.post(`/comments/create-for-issue/${issueId}/`, data),
 };
 
 export default api;

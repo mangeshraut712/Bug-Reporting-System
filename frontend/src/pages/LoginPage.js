@@ -8,8 +8,14 @@ const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, enterDemo } = useAuth();
   const navigate = useNavigate();
+
+  const handleDemo = () => {
+    enterDemo();
+    toast.success('Demo workspace ready — data stays in this browser.');
+    navigate('/dashboard');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,7 +44,7 @@ const LoginPage = () => {
             <span className="text-white font-bold text-xl">B</span>
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Bug Tracker</h1>
-          <p className="text-gray-600 mt-2">Sign in to your account</p>
+          <p className="text-gray-600 mt-2">Track issues, assign owners, and ship fixes</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -84,6 +90,26 @@ const LoginPage = () => {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-200" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="bg-white px-3 text-gray-500">or</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleDemo}
+          className="w-full border border-blue-200 bg-blue-50 text-blue-800 py-2 rounded-lg font-medium hover:bg-blue-100 transition"
+        >
+          Explore demo workspace
+        </button>
+        <p className="text-center text-xs text-gray-500 mt-2">
+          No backend required — sample projects and issues load in the browser.
+        </p>
 
         <p className="text-center text-gray-600 mt-6">
           Don't have an account?{' '}
