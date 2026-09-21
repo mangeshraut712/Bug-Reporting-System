@@ -15,7 +15,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32",
+    "postcss": "^8.5.23",
     "react-scripts": "5.0.1"
   },
   "scripts": {
