@@ -1,17 +1,12 @@
-# Product UI lives in frontend/. Without this, Netlify auto-detects the
-# Next.js app-store-screenshots skill template under .agents/ and the
-# deploy preview fails before a real build runs.
+# Override Netlify UI package-directory auto-detect (Next.js skill template
+# under .agents/). Product UI is Create React App in frontend/.
 [build]
-  command = "npm --prefix frontend ci && npm --prefix frontend run build"
-  publish = "frontend/build"
+  base = "frontend"
+  command = "npm ci && npm run build"
+  publish = "build"
 
 [build.environment]
   NODE_VERSION = "20"
   PUBLIC_URL = "/"
   CI = "true"
   NETLIFY_NEXT_PLUGIN_SKIP = "true"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
