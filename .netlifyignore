@@ -1,0 +1,3 @@
+# Do not let Netlify treat the screenshot-editor skill as the site.
+.agents
+backend

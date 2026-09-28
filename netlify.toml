@@ -1,0 +1,12 @@
+# Override Netlify UI package-directory auto-detect (Next.js skill template
+# under .agents/). Product UI is Create React App in frontend/.
+[build]
+  base = "frontend"
+  command = "npm ci && npm run build"
+  publish = "build"
+
+[build.environment]
+  NODE_VERSION = "20"
+  PUBLIC_URL = "/"
+  CI = "true"
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
