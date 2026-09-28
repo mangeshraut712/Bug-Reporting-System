@@ -10,15 +10,21 @@ A modern, scalable bug tracking application built with cutting-edge technologies
 
 **Live frontend (GitHub Pages):** https://mangeshraut712.github.io/Bug-Reporting-System/
 
-<p align="center">
-  <img src="docs/screenshots/01-home.png" alt="Project list dashboard" width="720" />
-</p>
-<p align="center"><em>Home — projects you can open into a filtered issue list</em></p>
+## Screenshots
 
-<p align="center">
-  <img src="docs/screenshots/02-feature.png" alt="Issue detail with comments and status" width="720" />
-</p>
-<p align="center"><em>Issue detail — status, assignment, and threaded comments</em></p>
+Framed captures of the live app (current UI).
+
+<div align="center">
+
+<img src="docs/screenshots/01-sign-in.webp" alt="Sign in to Bug Tracker" width="720" />
+
+<img src="docs/screenshots/02-projects.webp" alt="Open a project from the dashboard" width="720" />
+
+<img src="docs/screenshots/03-issue-list.webp" alt="Filter issues by status and priority" width="720" />
+
+<img src="docs/screenshots/04-issue-thread.webp" alt="Issue detail with comments" width="720" />
+
+</div>
 
 The React UI is a static Create React App build and is hosted on GitHub Pages (base path `/Bug-Reporting-System/`). The Django REST API, PostgreSQL, and JWT auth **cannot** run on Pages. Use **Explore demo workspace** on the login screen to try the UI with sample data in the browser. Point `REACT_APP_API_URL` (GitHub Actions variable) at a free backend host such as Render, Railway, or Fly.io, and add the Pages origin to `CORS_ALLOWED_ORIGINS`.
 
