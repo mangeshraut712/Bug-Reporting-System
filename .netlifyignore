@@ -1,0 +1,4 @@
+# Keep the screenshot-editor skill out of Netlify's framework detection.
+.agents
+backend
+.github

@@ -1,0 +1,17 @@
+# Product UI lives in frontend/. Without this, Netlify auto-detects the
+# Next.js app-store-screenshots skill template under .agents/ and the
+# deploy preview fails before a real build runs.
+[build]
+  command = "npm --prefix frontend ci && npm --prefix frontend run build"
+  publish = "frontend/build"
+
+[build.environment]
+  NODE_VERSION = "20"
+  PUBLIC_URL = "/"
+  CI = "true"
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
