@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { projectsAPI, issuesAPI } from '../services/api';
 import { toast } from 'react-toastify';
@@ -21,19 +21,27 @@ const IssueListPage = () => {
     description: '',
     priority: 'medium',
   });
+  const requestId = useRef(0);
 
   const fetchProjectAndIssues = useCallback(async () => {
+    const current = requestId.current + 1;
+    requestId.current = current;
     try {
-      setLoading(true);
       const projectRes = await projectsAPI.retrieve(projectId);
-      setProject(projectRes.data);
-
       const issuesRes = await projectsAPI.getIssues(projectId, filters);
+      if (current !== requestId.current) {
+        return;
+      }
+      setProject(projectRes.data);
       setIssues(issuesRes.data);
     } catch (error) {
-      toast.error('Failed to fetch data');
+      if (current === requestId.current) {
+        toast.error('Failed to fetch data');
+      }
     } finally {
-      setLoading(false);
+      if (current === requestId.current) {
+        setLoading(false);
+      }
     }
   }, [projectId, filters]);
 
@@ -106,7 +114,7 @@ const IssueListPage = () => {
               <select
                 value={filters.status}
                 onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
               >
                 <option value="">All Statuses</option>
                 <option value="open">Open</option>
@@ -121,7 +129,7 @@ const IssueListPage = () => {
               <select
                 value={filters.priority}
                 onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
               >
                 <option value="">All Priorities</option>
                 <option value="low">Low</option>
@@ -139,7 +147,7 @@ const IssueListPage = () => {
                 value={filters.search}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                 placeholder="Search issues..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
               />
             </div>
           </div>
@@ -193,7 +201,7 @@ const IssueListPage = () => {
 
       {/* Create Issue Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Create New Issue</h2>
             <form onSubmit={handleCreateIssue} className="space-y-4">
@@ -206,7 +214,7 @@ const IssueListPage = () => {
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
                   placeholder="Issue title"
                 />
               </div>
@@ -219,7 +227,7 @@ const IssueListPage = () => {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   required
                   rows="4"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
                   placeholder="Issue description..."
                 />
               </div>
@@ -230,7 +238,7 @@ const IssueListPage = () => {
                 <select
                   value={formData.priority}
                   onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
