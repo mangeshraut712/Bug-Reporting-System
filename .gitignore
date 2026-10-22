@@ -61,3 +61,6 @@ htmlcov/
 # Docker
 .dockerignore
 .vercel
+# Local agent tooling
+.agents/
+skills-lock.json
