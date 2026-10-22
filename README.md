@@ -30,7 +30,7 @@ Framed captures of the live app (current UI).
 
 </div>
 
-The React UI is a static Create React App build and is hosted on GitHub Pages (base path `/Bug-Reporting-System/`). The Django REST API, PostgreSQL, and JWT auth **cannot** run on Pages. Use **Explore demo workspace** on the login screen to try the UI with sample data in the browser. Point `REACT_APP_API_URL` (GitHub Actions variable) at a free backend host such as Render, Railway, or Fly.io, and add the Pages origin to `CORS_ALLOWED_ORIGINS`.
+The React UI is a static Vite build and is hosted on GitHub Pages (base path `/Bug-Reporting-System/`). The Django REST API, PostgreSQL, and JWT auth **cannot** run on Pages. Use **Explore demo workspace** on the login screen to try the UI with sample data in the browser. Point `REACT_APP_API_URL` (GitHub Actions variable) at a free backend host such as Render, Railway, or Fly.io, and add the Pages origin to `CORS_ALLOWED_ORIGINS`.
 
 ## Key Features
 
