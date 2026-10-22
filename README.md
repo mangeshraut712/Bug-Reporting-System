@@ -1,4 +1,4 @@
-# 🐛 Bug Reporting System
+# Bug Reporting System
 
 [![Django](https://img.shields.io/badge/Django-4.2+-092E20?style=for-the-badge&logo=django)](https://www.djangoproject.com/)
 [![React](https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react)](https://reactjs.org/)
@@ -6,11 +6,15 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
-A modern, scalable bug tracking application built with cutting-edge technologies. Streamline issue management, enhance team collaboration, and boost productivity with advanced features and best practices.
+A bug tracker with a Django REST Framework API and a React frontend: sign in, create projects, file issues, and discuss them in comment threads.
 
 **Live frontend (GitHub Pages):** https://mangeshraut712.github.io/Bug-Reporting-System/
 
 ## Screenshots
+
+Unframed capture of the [live demo](https://mangeshraut712.github.io/Bug-Reporting-System/) home page, taken with headless Chromium on 22 October 2026:
+
+<p align="center"><img src="docs/screenshots/live-home.webp" alt="Bug-Reporting-System live demo home page" width="720" /></p>
 
 Framed captures of the live app (current UI).
 
@@ -28,44 +32,44 @@ Framed captures of the live app (current UI).
 
 The React UI is a static Create React App build and is hosted on GitHub Pages (base path `/Bug-Reporting-System/`). The Django REST API, PostgreSQL, and JWT auth **cannot** run on Pages. Use **Explore demo workspace** on the login screen to try the UI with sample data in the browser. Point `REACT_APP_API_URL` (GitHub Actions variable) at a free backend host such as Render, Railway, or Fly.io, and add the Pages origin to `CORS_ALLOWED_ORIGINS`.
 
-## ✨ Key Features
+## Key Features
 
-### 🔐 **Advanced Authentication & Security**
+### Advanced Authentication & Security
 - JWT-based authentication with refresh tokens
 - Role-based access control (RBAC)
 - Secure password hashing and validation
 - CORS protection and CSRF mitigation
 - Token blacklisting for enhanced security
 
-### 📋 **Comprehensive Issue Management**
+### Comprehensive Issue Management
 - Full CRUD operations for issues
 - Priority levels (Low, Medium, High, Critical)
 - Status tracking (Open, In Progress, Closed)
 - Advanced filtering and search capabilities
 - Real-time status updates
 
-### 👥 **Team Collaboration**
+### Team Collaboration
 - Multi-user project management
 - Comment system for issue discussions
 - User assignment and reassignment
 - Activity tracking and audit logs
 - Email notifications (planned)
 
-### 🎨 **Modern UI/UX**
+### Modern UI/UX
 - Responsive design with Tailwind CSS
 - Dark/light theme support (planned)
 - Mobile-first approach
 - Intuitive navigation and user flows
 - Accessibility compliance (WCAG 2.1)
 
-### 🔧 **Developer Experience**
+### Developer Experience
 - Hot reload development servers
 - Comprehensive API documentation
 - Automated testing with 92% coverage
 - Docker containerization
 - CI/CD ready configuration
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 ### Backend Architecture
 ```mermaid
@@ -188,7 +192,7 @@ bug-reporting-system/
 └── README.md
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -198,7 +202,7 @@ bug-reporting-system/
 - **Docker & Docker Compose** - Containerization platform
 - **Git** - Version control system
 
-### ⚡ One-Command Setup (Docker)
+### One-Command Setup (Docker)
 
 ```bash
 git clone https://github.com/mangeshraut712/Bug-Reporting-System.git
@@ -211,7 +215,7 @@ That's it! The application will be running at:
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/api/docs/
 
-### 🛠️ Manual Development Setup
+### Manual Development Setup
 
 ### Backend Setup
 
@@ -346,13 +350,15 @@ docker-compose down
 
 ## Testing
 
-### Backend Test Coverage: 92% ✅
+### Backend tests
 
-**33 Test Cases Implemented:**
-- Accounts: 5 tests (registration, login, authentication)
-- Projects: 7 tests (CRUD, filtering, relationships)
-- Issues: 11 tests (CRUD, status updates, permissions)
-- Comments: 10 tests (CRUD, filtering, relationships)
+33 pytest test cases across the Django apps:
+- Accounts: 5 (registration, login, authentication)
+- Projects: 8 (CRUD, filtering, relationships)
+- Issues: 11 (CRUD, status updates, permissions)
+- Comments: 9 (CRUD, filtering, relationships)
+
+Run `pytest --cov` (below) to measure coverage on your machine.
 
 ### Run Backend Tests
 
@@ -474,7 +480,7 @@ REACT_APP_API_URL=http://localhost:8000/api
 - **IsAuthenticated**: All API endpoints require authentication
 - **IsReporterOrAssignee**: Only issue reporter or assignee can update issue status/assignee
 
-## 🔒 Security Features
+## Security Features
 
 ### Authentication & Authorization
 - **JWT Tokens**: Stateless authentication with access/refresh token pattern
@@ -496,7 +502,7 @@ REACT_APP_API_URL=http://localhost:8000/api
 - **Audit Logging**: Comprehensive logging of user actions
 - **Secure Headers**: Security middleware for production deployment
 
-## 📊 API Design & Architecture
+## API Design & Architecture
 
 ### RESTful Design Principles
 - **Resource-Based URLs**: Intuitive, hierarchical URL structure
@@ -519,7 +525,7 @@ REACT_APP_API_URL=http://localhost:8000/api
 - **Query Optimization**: Efficient ORM queries with minimal database hits
 - **Response Compression**: Gzip compression for reduced bandwidth
 
-## 🧪 Quality Assurance
+## Quality Assurance
 
 ### Testing Strategy
 - **Unit Tests**: Comprehensive coverage of business logic
@@ -560,7 +566,7 @@ jobs:
         uses: codecov/codecov-action@v3
 ```
 
-## 🚀 Deployment
+## Deployment
 
 ### Frontend: GitHub Pages (current)
 
@@ -572,10 +578,9 @@ The paused Vercel site is replaced by GitHub Pages + Actions (`.github/workflows
 
 **Still needs a free backend:** Django + PostgreSQL (this repo’s `backend/`). GitHub Pages only serves the static React app. Until an API is deployed, login/register/issue calls will fail against a missing `REACT_APP_API_URL`.
 
-### 🚀 Step-by-Step Deployment Guide
+### Step-by-Step Deployment Guide
 
-#### **Phase 1: Backend Deployment (Heroku)**
-
+#### Phase 1: Backend Deployment (Heroku)
 ##### Step 1: Create Heroku Account & Install CLI
 1. Go to [https://www.heroku.com](https://www.heroku.com)
 2. Sign up/Login with GitHub account
@@ -620,8 +625,7 @@ heroku logs --tail
 curl https://bug-reporting-backend.herokuapp.com/api/projects/
 ```
 
-#### **Phase 2: Frontend Deployment (Vercel)**
-
+#### Phase 2: Frontend Deployment (Vercel)
 ##### Step 1: Create Vercel Account & Connect Repository
 1. Go to [https://vercel.com](https://vercel.com)
 2. Sign up/Login with GitHub account
@@ -646,8 +650,7 @@ curl https://bug-reporting-backend.herokuapp.com/api/projects/
 2. Wait for build completion (2-3 minutes)
 3. Note the frontend URL: `https://bug-reporting-system.vercel.app`
 
-#### **Phase 3: Post-Deployment Configuration**
-
+#### Phase 3: Post-Deployment Configuration
 ##### Step 1: Update Backend CORS Settings
 ```bash
 # Update CORS to allow Vercel frontend
@@ -667,8 +670,7 @@ heroku config:set CORS_ALLOWED_ORIGINS=https://bug-reporting-system.vercel.app
 - ✅ No CORS errors in browser console
 - ✅ SSL certificates active (automatic on both platforms)
 
-#### **Phase 4: Domain Configuration (Optional)**
-
+#### Phase 4: Domain Configuration (Optional)
 ##### Custom Domain on Vercel
 1. Go to **Settings** → **Domains**
 2. Add custom domain
@@ -684,7 +686,7 @@ heroku domains:add www.yourdomain.com
 # Update Vercel environment variables with new backend URL
 ```
 
-### 🔧 Troubleshooting Deployment Issues
+### Troubleshooting Deployment Issues
 
 #### Backend (Heroku) Issues
 ```bash
@@ -715,7 +717,7 @@ heroku logs --tail
 3. Ensure no trailing slashes in URLs
 4. Redeploy backend after updating CORS: `git push heroku main`
 
-### 📊 Deployment Checklist
+### Deployment Checklist
 
 - [ ] **Heroku Account**: Created and CLI installed
 - [ ] **Heroku App**: Created with PostgreSQL database
@@ -866,7 +868,7 @@ Interactive API documentation is available at:
 - Frontend bundle size: ~150KB (gzipped)
 - Test coverage: > 80%
 
-## 🚀 Modern Development Workflow
+## Modern Development Workflow
 
 ### Development Environment
 ```bash
@@ -925,7 +927,7 @@ docker-compose up --build
 docker-compose down -v --remove-orphans
 ```
 
-## 📈 Roadmap & Future Enhancements
+## Roadmap & Future Enhancements
 
 ### Phase 1: Enhanced Collaboration (Q1 2024)
 - [ ] **Real-time Notifications**: WebSocket integration for live updates
@@ -957,7 +959,7 @@ docker-compose down -v --remove-orphans
 - [ ] **Kubernetes**: Container orchestration for scaling
 - [ ] **CDN Integration**: Global content delivery
 
-## 🤝 Contributing Guidelines
+## Contributing Guidelines
 
 ### Development Setup
 1. Fork the repository
@@ -983,17 +985,17 @@ docker-compose down -v --remove-orphans
 - Provide detailed reproduction steps for bugs
 - Include environment information and error logs
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Django Community** - For the excellent web framework
 - **React Team** - For the innovative frontend library
 - **Open Source Contributors** - For the amazing tools and libraries
 
-## 📞 Support & Community
+## Support & Community
 
 - **Issues**: [GitHub Issues](https://github.com/mangeshraut712/Bug-Reporting-System/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/mangeshraut712/Bug-Reporting-System/discussions)
