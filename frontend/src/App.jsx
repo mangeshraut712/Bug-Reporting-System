@@ -13,7 +13,7 @@ import DashboardPage from './pages/DashboardPage';
 import IssueListPage from './pages/IssueListPage';
 import IssueDetailPage from './pages/IssueDetailPage';
 
-const routerBasename = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
+const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 function App() {
   return (

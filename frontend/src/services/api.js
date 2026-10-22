@@ -7,7 +7,7 @@ import {
   isDemoMode,
 } from './demoStore';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -35,7 +35,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !isDemoMode()) {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
-      const base = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
+      const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       window.location.href = `${base}/login`;
     }
     return Promise.reject(error);
