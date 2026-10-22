@@ -158,3 +158,56 @@ class TestCommentEndpoints:
         assert response.status_code == status.HTTP_201_CREATED
         comment = Comment.objects.get(content='Test comment')
         assert comment.author == user
+
+    def test_create_for_issue_sets_author(self, authenticated_client, issue, another_user):
+        """
+        The issue shortcut stores the comment on that issue as the caller.
+        """
+        api_client, user = authenticated_client
+        response = api_client.post(
+            f'/api/comments/create-for-issue/{issue.id}/',
+            {'content': 'Shortcut comment', 'author': another_user.id},
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        comment = Comment.objects.get(content='Shortcut comment')
+        assert comment.author == user
+        assert comment.issue == issue
+        assert response.data['author_email'] == user.email
+        assert response.data['author_name'] == user.get_full_name()
+
+    def test_create_for_issue_rejects_blank_content(self, authenticated_client, issue):
+        """
+        The issue shortcut still requires comment content.
+        """
+        api_client, _ = authenticated_client
+        response = api_client.post(f'/api/comments/create-for-issue/{issue.id}/', {'content': ''})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert issue.comments.count() == 0
+
+    def test_create_for_missing_issue(self, authenticated_client):
+        """
+        Commenting on a missing issue returns 404.
+        """
+        api_client, _ = authenticated_client
+        response = api_client.post(
+            '/api/comments/create-for-issue/99999/',
+            {'content': 'Nowhere'},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.data['error'] == 'Not Found'
+
+    def test_empty_comment_rejected(self, authenticated_client, issue):
+        """
+        A comment needs content.
+        """
+        api_client, _ = authenticated_client
+        response = api_client.post('/api/comments/', {'content': '', 'issue': issue.id})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not Comment.objects.filter(issue=issue, content='').exists()
+
+    def test_comment_string(self, comment):
+        """
+        A comment names its author and issue.
+        """
+        assert str(comment.issue) in str(comment)
+        assert 'Comment by' in str(comment)

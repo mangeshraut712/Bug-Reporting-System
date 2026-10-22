@@ -145,7 +145,7 @@ const IssueDetailPage = () => {
               <select
                 value={issue.status}
                 onChange={(e) => handleStatusChange(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
               >
                 <option value="open">Open</option>
                 <option value="in_progress">In Progress</option>
@@ -192,7 +192,7 @@ const IssueDetailPage = () => {
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 rows="4"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
                 placeholder="Write your comment here..."
               />
             </div>

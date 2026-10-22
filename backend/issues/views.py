@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+from projects.models import Project
 from .models import Issue
 from .serializers import IssueSerializer
 from .permissions import IsReporterOrAssignee
@@ -51,10 +52,11 @@ class IssueViewSet(viewsets.ModelViewSet):
         """
         Create an issue for a specific project.
         """
-        from projects.models import Project
         project = get_object_or_404(Project, pk=project_id)
-        
-        serializer = self.get_serializer(data=request.data)
+
+        data = request.data.copy()
+        data['project'] = project.id
+        serializer = self.get_serializer(data=data)
         if serializer.is_valid():
             serializer.save(reporter=request.user, project=project)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
