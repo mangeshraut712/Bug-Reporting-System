@@ -24,8 +24,10 @@ services:
              python manage.py collectstatic --noinput &&
              gunicorn --bind 0.0.0.0:8000 --workers 4 bug_tracking.wsgi:application"
     environment:
-      DEBUG: "False"
-      SECRET_KEY: "your-secret-key-change-in-production"
+      # Local compose only. Set DEBUG=false with a unique SECRET_KEY of at
+      # least 50 characters before exposing this stack.
+      DEBUG: ${DEBUG:-True}
+      SECRET_KEY: ${SECRET_KEY:-}
       DB_ENGINE: django.db.backends.postgresql
       DB_NAME: bug_tracking
       DB_USER: postgres

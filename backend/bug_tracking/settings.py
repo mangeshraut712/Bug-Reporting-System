@@ -2,23 +2,39 @@
 Django settings for bug_tracking project.
 """
 
-from pathlib import Path
+import sys
 from datetime import timedelta
+from pathlib import Path
+
 from decouple import config
+
+from .security import (
+    parse_allowed_hosts,
+    parse_origins,
+    production_security_settings,
+    resolve_secret_key,
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-production')
+# pytest imports this module after pytest itself is loaded. Default DEBUG on
+# so the suite can boot without a production secret. Explicit DEBUG still wins.
+TESTING = 'pytest' in sys.modules
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = config('DEBUG', default=TESTING, cast=bool)
 
-ALLOWED_HOSTS = config(
-    'ALLOWED_HOSTS',
-    default='localhost,127.0.0.1,bug-reporting-backend.herokuapp.com'
-).split(',')
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = resolve_secret_key(config('SECRET_KEY', default=''), debug=DEBUG)
+
+ALLOWED_HOSTS = parse_allowed_hosts(
+    config(
+        'ALLOWED_HOSTS',
+        default='localhost,127.0.0.1,bug-reporting-backend.herokuapp.com',
+    ),
+    debug=DEBUG,
+)
 
 # Application definition
 INSTALLED_APPS = [
@@ -28,15 +44,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Third-party apps
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
     'drf_spectacular',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'dj_rest_auth',
-    
+
     # Local apps
     'accounts',
     'projects',
@@ -123,6 +140,11 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 10,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'bug_tracking.exception_handler.custom_exception_handler',
+    'DEFAULT_THROTTLE_RATES': {
+        'login': '10/min',
+        'register': '5/min',
+        'refresh': '30/min',
+    },
 }
 
 # Simple JWT Configuration
@@ -136,11 +158,23 @@ SIMPLE_JWT = {
     'SIGNING_KEY': SECRET_KEY,
 }
 
-# CORS Configuration
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000,https://bug-reporting-system.vercel.app'
-).split(',')
+# CORS Configuration. Credentials stay off because the SPA sends the JWT header.
+CORS_ALLOW_CREDENTIALS = False
+CORS_ALLOWED_ORIGINS = parse_origins(
+    config(
+        'CORS_ALLOWED_ORIGINS',
+        default=(
+            'http://localhost:3000,http://127.0.0.1:3000,'
+            'https://bug-reporting-system.vercel.app'
+        ),
+    )
+)
+
+CSRF_TRUSTED_ORIGINS = parse_origins(config('CSRF_TRUSTED_ORIGINS', default=''))
+if not CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = [
+        origin for origin in CORS_ALLOWED_ORIGINS if origin.startswith('https://')
+    ]
 
 # Spectacular (Swagger) Configuration
 SPECTACULAR_SETTINGS = {
@@ -150,10 +184,44 @@ SPECTACULAR_SETTINGS = {
     'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
 }
 
-# dj-rest-auth Configuration
+# dj-rest-auth Configuration. JWTs are returned in the response body for the SPA.
+# Session login stays off so a cross-site form post cannot plant a session cookie.
 REST_AUTH = {
+    'USE_JWT': True,
+    'SESSION_LOGIN': False,
+    'JWT_AUTH_HTTPONLY': False,
+    'JWT_AUTH_COOKIE': None,
+    'JWT_AUTH_REFRESH_COOKIE': None,
     'USER_DETAILS_SERIALIZER': 'accounts.serializers.CustomUserDetailsSerializer',
+    'LOGIN_SERIALIZER': 'accounts.serializers.EmailLoginSerializer',
 }
+
+EMAIL_BACKEND = config(
+    'EMAIL_BACKEND',
+    default='django.core.mail.backends.console.EmailBackend',
+)
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='bugs@localhost')
+
+if not DEBUG:
+    _security = production_security_settings()
+    SECURE_SSL_REDIRECT = config(
+        'SECURE_SSL_REDIRECT',
+        default=_security['SECURE_SSL_REDIRECT'],
+        cast=bool,
+    )
+    SECURE_HSTS_SECONDS = _security['SECURE_HSTS_SECONDS']
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = _security['SECURE_HSTS_INCLUDE_SUBDOMAINS']
+    SECURE_HSTS_PRELOAD = _security['SECURE_HSTS_PRELOAD']
+    SECURE_PROXY_SSL_HEADER = _security['SECURE_PROXY_SSL_HEADER']
+    SECURE_CONTENT_TYPE_NOSNIFF = _security['SECURE_CONTENT_TYPE_NOSNIFF']
+    SECURE_REFERRER_POLICY = _security['SECURE_REFERRER_POLICY']
+    SESSION_COOKIE_SECURE = _security['SESSION_COOKIE_SECURE']
+    SESSION_COOKIE_HTTPONLY = _security['SESSION_COOKIE_HTTPONLY']
+    SESSION_COOKIE_SAMESITE = _security['SESSION_COOKIE_SAMESITE']
+    CSRF_COOKIE_SECURE = _security['CSRF_COOKIE_SECURE']
+    CSRF_COOKIE_HTTPONLY = _security['CSRF_COOKIE_HTTPONLY']
+    CSRF_COOKIE_SAMESITE = _security['CSRF_COOKIE_SAMESITE']
+    X_FRAME_OPTIONS = _security['X_FRAME_OPTIONS']
 
 # Logging
 LOGGING = {

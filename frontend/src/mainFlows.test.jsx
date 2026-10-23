@@ -105,6 +105,47 @@ describe('main flows', () => {
     expect(localStorage.getItem('access_token')).toBe('access-token');
   });
 
+  test('renders a paginated project list from the API', async () => {
+    const user = userEvent.setup();
+    apiMock.post.mockResolvedValueOnce({
+      data: { access: 'access-token', refresh: 'refresh-token' },
+    });
+    apiMock.get.mockImplementation((url) => {
+      if (url === '/auth/users/me/') {
+        return Promise.resolve({
+          data: { id: 9, email: 'ada@example.com', first_name: 'Ada', username: 'ada' },
+        });
+      }
+      if (url === '/projects/') {
+        return Promise.resolve({
+          data: {
+            count: 1,
+            next: null,
+            results: [
+              {
+                id: 4,
+                name: 'Paged Project',
+                description: 'Returned inside a DRF page',
+                issue_count: 2,
+                created_at: '2026-01-15T00:00:00Z',
+              },
+            ],
+          },
+        });
+      }
+      return Promise.reject(new Error(`unexpected ${url}`));
+    });
+    renderAt('/login');
+
+    await user.type(screen.getByPlaceholderText('you@example.com'), 'ada@example.com');
+    await user.type(screen.getByPlaceholderText('••••••••'), 'correct-password');
+    await user.click(screen.getByRole('button', { name: 'Sign In' }));
+
+    expect(await screen.findByText('Paged Project')).toBeInTheDocument();
+    expect(screen.getByText('Returned inside a DRF page')).toBeInTheDocument();
+    expect(screen.getByText('2 issues')).toBeInTheDocument();
+  });
+
   test('stops registration when the passwords do not match', async () => {
     const user = userEvent.setup();
     renderAt('/login');

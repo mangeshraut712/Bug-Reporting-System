@@ -20,7 +20,7 @@ COPY . .
 RUN mkdir -p /app/staticfiles
 
 # Run migrations and collect static files
-RUN python manage.py collectstatic --noinput
+RUN DEBUG=True python manage.py collectstatic --noinput
 
 # Expose port
 EXPOSE 8000

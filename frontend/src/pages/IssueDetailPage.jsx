@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { issuesAPI, commentsAPI } from '../services/api';
+import { asList, commentsAPI, issuesAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import { ArrowLeft, MessageSquare, Send } from 'lucide-react';
@@ -23,7 +23,7 @@ const IssueDetailPage = () => {
       setIssue(issueRes.data);
 
       const commentsRes = await commentsAPI.list({ issue_id: issueId });
-      setComments(commentsRes.data);
+      setComments(asList(commentsRes.data));
     } catch (error) {
       toast.error('Failed to fetch issue');
       navigate('/dashboard');

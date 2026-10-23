@@ -1,14 +1,20 @@
 """
 URL configuration for accounts app.
 """
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import RegisterViewSet, UserViewSet
+from django.urls import path
 
-router = DefaultRouter()
-router.register(r'', RegisterViewSet, basename='register')
-router.register(r'users', UserViewSet, basename='user')
+from .views import (
+    CurrentUserView,
+    PublicTokenRefreshView,
+    RegisterView,
+    SafeLogoutView,
+    ThrottledLoginView,
+)
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('register/', RegisterView.as_view(), name='register'),
+    path('login/', ThrottledLoginView.as_view(), name='login'),
+    path('logout/', SafeLogoutView.as_view(), name='logout'),
+    path('token/refresh/', PublicTokenRefreshView.as_view(), name='token-refresh'),
+    path('users/me/', CurrentUserView.as_view(), name='current-user'),
 ]

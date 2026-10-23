@@ -1,8 +1,8 @@
 """
 Models for comments app.
 """
-from django.db import models
 from django.contrib.auth import get_user_model
+from django.db import models
 
 User = get_user_model()
 
@@ -26,4 +26,5 @@ class Comment(models.Model):
         ]
 
     def __str__(self):
-        return f'Comment by {self.author} on {self.issue}'
+        author = self.author.email if self.author_id else 'deleted user'
+        return f'Comment by {author} on {self.issue}'

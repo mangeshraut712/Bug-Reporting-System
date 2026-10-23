@@ -1,22 +1,27 @@
 """
 Views for projects app.
 """
-from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Prefetch
+from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
+
+from bug_tracking.mixins import PositiveIntLookupMixin
+from issues.filters import filter_issues
+from issues.serializers import IssueSerializer
+
 from .models import Project
+from .permissions import IsProjectOwnerOrReadOnly
 from .serializers import ProjectSerializer
 
 
-class ProjectViewSet(viewsets.ModelViewSet):
+class ProjectViewSet(PositiveIntLookupMixin, ModelViewSet):
     """
     ViewSet for Project model.
     Provides CRUD operations for projects.
     """
     serializer_class = ProjectSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsProjectOwnerOrReadOnly]
 
     def get_queryset(self):
         """
@@ -36,23 +41,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         Get all issues for a specific project.
         """
         project = self.get_object()
-        issues = project.issues.all()
-        
-        # Apply filters
-        status_filter = request.query_params.get('status')
-        priority_filter = request.query_params.get('priority')
-        search = request.query_params.get('search')
-
-        if status_filter:
-            issues = issues.filter(status=status_filter)
-        if priority_filter:
-            issues = issues.filter(priority=priority_filter)
-        if search:
-            issues = issues.filter(title__icontains=search) | issues.filter(description__icontains=search)
-
-        # Optimize queries
+        issues = filter_issues(project.issues.all(), request.query_params)
         issues = issues.select_related('reporter', 'assignee').prefetch_related('comments')
-
-        from issues.serializers import IssueSerializer
         serializer = IssueSerializer(issues, many=True)
         return Response(serializer.data)

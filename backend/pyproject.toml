@@ -1,0 +1,14 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+extend-exclude = ["migrations"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "B", "S", "I"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"conftest.py" = ["S105", "S106"]
+"**/tests.py" = ["S105", "S106"]
+"tests/**" = ["S105", "S106"]
+"bug_tracking/security.py" = ["S105"]

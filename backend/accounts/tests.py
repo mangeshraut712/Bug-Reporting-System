@@ -3,7 +3,10 @@ Tests for accounts app.
 """
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from rest_framework import status
+
+from accounts.throttles import LoginRateThrottle, RegisterRateThrottle
 
 User = get_user_model()
 
@@ -26,7 +29,7 @@ class TestAuthEndpoints:
             'password': 'testpass123',
             'password_confirm': 'testpass123',
         }
-        response = api_client.post('/api/auth/register/register/', data)
+        response = api_client.post('/api/auth/register/', data)
         assert response.status_code == status.HTTP_201_CREATED
         assert User.objects.filter(email='newuser@example.com').exists()
 
@@ -40,7 +43,7 @@ class TestAuthEndpoints:
             'password': 'testpass123',
             'password_confirm': 'differentpass',
         }
-        response = api_client.post('/api/auth/register/register/', data)
+        response = api_client.post('/api/auth/register/', data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_user_login(self, api_client, user):
@@ -53,7 +56,14 @@ class TestAuthEndpoints:
         }
         response = api_client.post('/api/auth/login/', data)
         assert response.status_code == status.HTTP_200_OK
-        assert 'key' in response.data
+        assert response.data['access']
+        assert response.data['refresh']
+        assert 'key' not in response.data
+        assert 'password' not in response.data['user']
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data['access']}")
+        me = api_client.get('/api/auth/users/me/')
+        assert me.status_code == status.HTTP_200_OK
+        assert me.data['email'] == user.email
 
     def test_user_login_invalid_credentials(self, api_client):
         """
@@ -87,7 +97,7 @@ class TestAuthEndpoints:
             'password': 'testpass123',
             'password_confirm': 'testpass123',
         }
-        response = api_client.post('/api/auth/register/register/', data)
+        response = api_client.post('/api/auth/register/', data)
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['message'] == 'User registered successfully'
         assert response.data['user']['email'] == 'hidden@example.com'
@@ -103,7 +113,7 @@ class TestAuthEndpoints:
             'password': 'testpass123',
             'password_confirm': 'testpass123',
         }
-        response = api_client.post('/api/auth/register/register/', data)
+        response = api_client.post('/api/auth/register/', data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert User.objects.filter(email=user.email).count() == 1
 
@@ -117,7 +127,7 @@ class TestAuthEndpoints:
             'password': 'short',
             'password_confirm': 'short',
         }
-        response = api_client.post('/api/auth/register/register/', data)
+        response = api_client.post('/api/auth/register/', data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert not User.objects.filter(email='short@example.com').exists()
 
@@ -126,7 +136,7 @@ class TestAuthEndpoints:
         The accounts viewset returns the signed-in user.
         """
         api_client, user = authenticated_client
-        response = api_client.get('/api/auth/register/users/me/')
+        response = api_client.get('/api/auth/users/me/')
         assert response.status_code == status.HTTP_200_OK
         assert response.data['email'] == user.email
         assert response.data['username'] == user.username
@@ -136,7 +146,7 @@ class TestAuthEndpoints:
         """
         Anonymous requests for the current user use the shared 401 shape.
         """
-        response = api_client.get('/api/auth/register/users/me/')
+        response = api_client.get('/api/auth/users/me/')
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert response.data['error'] == 'Unauthorized'
 
@@ -145,3 +155,189 @@ class TestAuthEndpoints:
         The custom user displays its email.
         """
         assert str(user) == 'test@example.com'
+        assert user.display_name() == 'Test User'
+
+    def test_registration_ignores_staff_flags(self, api_client):
+        """
+        Clients cannot grant themselves staff or superuser during registration.
+        """
+        data = {
+            'email': 'Staff@Example.com',
+            'username': 'staffish',
+            'password': 'testpass123',
+            'password_confirm': 'testpass123',
+            'is_staff': True,
+            'is_superuser': True,
+        }
+        response = api_client.post('/api/auth/register/', data)
+        assert response.status_code == status.HTTP_201_CREATED
+        created = User.objects.get(username='staffish')
+        assert created.email == 'staff@example.com'
+        assert created.is_staff is False
+        assert created.is_superuser is False
+        assert created.check_password('testpass123')
+
+    def test_duplicate_email_is_case_insensitive(self, api_client, user):
+        """
+        Email uniqueness does not depend on letter case.
+        """
+        response = api_client.post('/api/auth/register/', {
+            'email': user.email.upper(),
+            'username': 'someoneelse',
+            'password': 'testpass123',
+            'password_confirm': 'testpass123',
+        })
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert User.objects.filter(email__iexact=user.email).count() == 1
+
+    def test_common_and_numeric_passwords_rejected(self, api_client):
+        """
+        Django's password validators reject common and all-numeric passwords.
+        """
+        cases = (
+            ('common@example.com', 'commonuser', 'password'),
+            ('numeric@example.com', 'numericuser', '12345678'),
+        )
+        for email, username, password in cases:
+            response = api_client.post('/api/auth/register/', {
+                'email': email,
+                'username': username,
+                'password': password,
+                'password_confirm': password,
+            })
+            assert response.status_code == status.HTTP_400_BAD_REQUEST
+            assert not User.objects.filter(email=email).exists()
+
+    def test_login_unknown_email_and_bad_password_match(self, api_client, user):
+        """
+        Unknown accounts and wrong passwords return the same failure.
+        """
+        unknown = api_client.post('/api/auth/login/', {
+            'email': 'missing@example.com',
+            'password': 'testpass123',
+        })
+        wrong = api_client.post('/api/auth/login/', {
+            'email': user.email,
+            'password': 'not-the-password',
+        })
+        assert unknown.status_code == status.HTTP_400_BAD_REQUEST
+        assert wrong.status_code == status.HTTP_400_BAD_REQUEST
+        assert unknown.data == wrong.data
+        assert 'disabled' not in str(unknown.data).lower()
+
+    def test_inactive_user_cannot_login(self, api_client, user):
+        """
+        Disabled accounts cannot obtain a token.
+        """
+        user.is_active = False
+        user.save(update_fields=['is_active'])
+        response = api_client.post('/api/auth/login/', {
+            'email': user.email.upper(),
+            'password': 'testpass123',
+        })
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'access' not in response.data
+
+    def test_login_does_not_set_session_cookie(self, api_client, user):
+        """
+        Login returns JWTs and does not plant a session cookie.
+        """
+        response = api_client.post('/api/auth/login/', {
+            'email': user.email,
+            'password': 'testpass123',
+        })
+        assert response.status_code == status.HTTP_200_OK
+        assert 'sessionid' not in response.cookies
+
+    def test_logout_blacklists_refresh_token(self, api_client, user):
+        """
+        Logout revokes the refresh token so it cannot be rotated again.
+        """
+        login = api_client.post('/api/auth/login/', {
+            'email': user.email,
+            'password': 'testpass123',
+        })
+        refresh = login.data['refresh']
+        logout = api_client.post('/api/auth/logout/', {'refresh': refresh})
+        assert logout.status_code == status.HTTP_200_OK
+        reused = api_client.post('/api/auth/token/refresh/', {'refresh': refresh})
+        assert reused.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_refresh_rotates_and_old_token_stops_working(self, api_client, user):
+        """
+        A refresh token can be exchanged once, and the replacement is what remains valid.
+        """
+        login = api_client.post('/api/auth/login/', {
+            'email': user.email,
+            'password': 'testpass123',
+        })
+        first = api_client.post('/api/auth/token/refresh/', {'refresh': login.data['refresh']})
+        assert first.status_code == status.HTTP_200_OK
+        assert first.data['access']
+        assert first.data['refresh']
+        assert first.data['refresh'] != login.data['refresh']
+        second = api_client.post('/api/auth/token/refresh/', {'refresh': login.data['refresh']})
+        assert second.status_code == status.HTTP_401_UNAUTHORIZED
+        third = api_client.post('/api/auth/token/refresh/', {'refresh': first.data['refresh']})
+        assert third.status_code == status.HTTP_200_OK
+
+    def test_user_directory_is_not_exposed(self, authenticated_client):
+        """
+        Authenticated clients cannot list every account.
+        """
+        api_client, _user = authenticated_client
+        for path in ('/api/auth/users/', '/api/auth/register/users/'):
+            response = api_client.get(path)
+            assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_profile_update_cannot_change_email_or_staff(self, authenticated_client):
+        """
+        The signed-in user can edit their name but not their email or staff flag.
+        """
+        api_client, user = authenticated_client
+        response = api_client.patch('/api/auth/user/', {
+            'email': 'taken@example.com',
+            'is_staff': True,
+            'is_superuser': True,
+            'first_name': 'Renamed',
+        })
+        assert response.status_code == status.HTTP_200_OK
+        user.refresh_from_db()
+        assert user.email == 'test@example.com'
+        assert user.is_staff is False
+        assert user.is_superuser is False
+        assert user.first_name == 'Renamed'
+
+    def test_login_is_throttled(self, api_client, monkeypatch):
+        """
+        Repeated login attempts from one client are rate limited.
+        """
+        monkeypatch.setattr(LoginRateThrottle, 'rate', '1/min', raising=False)
+        cache.clear()
+        payload = {'email': 'missing@example.com', 'password': 'testpass123'}
+        first = api_client.post('/api/auth/login/', payload)
+        second = api_client.post('/api/auth/login/', payload)
+        assert first.status_code == status.HTTP_400_BAD_REQUEST
+        assert second.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert second.data['error'] == 'Too Many Requests'
+
+    def test_register_is_throttled(self, api_client, monkeypatch):
+        """
+        Repeated registration attempts from one client are rate limited.
+        """
+        monkeypatch.setattr(RegisterRateThrottle, 'rate', '1/min', raising=False)
+        cache.clear()
+        first = api_client.post('/api/auth/register/', {
+            'email': 'one@example.com',
+            'username': 'oneuser',
+            'password': 'testpass123',
+            'password_confirm': 'testpass123',
+        })
+        second = api_client.post('/api/auth/register/', {
+            'email': 'two@example.com',
+            'username': 'twouser',
+            'password': 'testpass123',
+            'password_confirm': 'testpass123',
+        })
+        assert first.status_code == status.HTTP_201_CREATED
+        assert second.status_code == status.HTTP_429_TOO_MANY_REQUESTS
