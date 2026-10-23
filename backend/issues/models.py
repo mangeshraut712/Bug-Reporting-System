@@ -1,9 +1,9 @@
 """
 Models for issues app.
 """
-from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db import models
 
 User = get_user_model()
 
@@ -44,13 +44,32 @@ class Issue(models.Model):
             models.Index(fields=['reporter']),
             models.Index(fields=['assignee']),
         ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(status__in=['open', 'in_progress', 'closed']),
+                name='issue_status_valid',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(priority__in=['low', 'medium', 'high', 'critical']),
+                name='issue_priority_valid',
+            ),
+        ]
 
     def __str__(self):
         return self.title
 
     def clean(self):
-        """
-        Validate status transitions and assignee.
-        """
-        if self.assignee and not isinstance(self.assignee, User):
-            raise ValidationError({'assignee': 'Invalid assignee.'})
+        """Reject status and priority values outside the supported choices."""
+        errors = {}
+        valid_status = {choice for choice, _label in self.STATUS_CHOICES}
+        valid_priority = {choice for choice, _label in self.PRIORITY_CHOICES}
+        if self.status not in valid_status:
+            errors['status'] = (
+                f'Invalid status. Must be one of: {", ".join(sorted(valid_status))}.'
+            )
+        if self.priority not in valid_priority:
+            errors['priority'] = (
+                f'Invalid priority. Must be one of: {", ".join(sorted(valid_priority))}.'
+            )
+        if errors:
+            raise ValidationError(errors)

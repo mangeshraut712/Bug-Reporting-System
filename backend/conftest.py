@@ -4,9 +4,29 @@ Pytest configuration and fixtures.
 import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
+from rest_framework.throttling import SimpleRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
+
+
+@pytest.fixture(autouse=True)
+def relaxed_auth_throttles():
+    """Keep credential throttles from tripping the rest of the suite.
+
+    DRF copies throttle rates onto the throttle class at import, so the suite
+    updates that mapping in place instead of replacing the settings dict.
+    """
+    rates = SimpleRateThrottle.THROTTLE_RATES
+    saved = dict(rates)
+    rates.update({
+        'login': '1000/min',
+        'register': '1000/min',
+        'refresh': '1000/min',
+    })
+    yield
+    rates.clear()
+    rates.update(saved)
 
 
 @pytest.fixture
@@ -45,24 +65,28 @@ def another_user(db):
     )
 
 
+def _client_for(user):
+    """Build a client that does not share credentials with another fixture."""
+    client = APIClient()
+    refresh = RefreshToken.for_user(user)
+    client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+    return client, user
+
+
 @pytest.fixture
-def authenticated_client(api_client, user):
+def authenticated_client(user):
     """
     Fixture to provide an authenticated API client.
     """
-    refresh = RefreshToken.for_user(user)
-    api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
-    return api_client, user
+    return _client_for(user)
 
 
 @pytest.fixture
-def authenticated_client_other(api_client, another_user):
+def authenticated_client_other(another_user):
     """
     Fixture to provide an authenticated API client for another user.
     """
-    refresh = RefreshToken.for_user(another_user)
-    api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
-    return api_client, another_user
+    return _client_for(another_user)
 
 
 @pytest.fixture

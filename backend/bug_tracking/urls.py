@@ -2,7 +2,7 @@
 URL configuration for bug_tracking project.
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import include, path
 from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
@@ -14,9 +14,10 @@ urlpatterns = [
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     
-    # API Routes
+    # API Routes. Accounts is first so login, logout, refresh, and register
+    # resolve to the views that issue JWTs and apply throttles.
+    path('api/auth/', include('accounts.urls')),
     path('api/auth/', include('dj_rest_auth.urls')),
-    path('api/auth/register/', include('accounts.urls')),
     path('api/projects/', include('projects.urls')),
     path('api/issues/', include('issues.urls')),
     path('api/comments/', include('comments.urls')),

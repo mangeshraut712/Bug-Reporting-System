@@ -1,5 +1,5 @@
-Django==5.2.17
-djangorestframework==3.18.2
+Django==5.2.18
+djangorestframework==3.18.3
 django-cors-headers==4.3.1
 djangorestframework-simplejwt==5.5.1
 dj-rest-auth==5.0.2
@@ -13,4 +13,5 @@ pytest-cov==4.1.0
 factory-boy==3.3.0
 Pillow==13.0.0
 # emSign CA advisory: require patched CA bundle
-certifi>=2026.10.19
+certifi>=2026.10.23
+ruff==0.17.2

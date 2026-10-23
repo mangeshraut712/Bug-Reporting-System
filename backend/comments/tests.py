@@ -3,8 +3,12 @@ Tests for comments app.
 """
 import pytest
 from rest_framework import status
-from projects.models import Project
+from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from issues.models import Issue
+from projects.models import Project
+
 from .models import Comment
 
 
@@ -56,7 +60,8 @@ class TestCommentEndpoints:
         )
         response = api_client.get('/api/comments/')
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
+        assert response.data['count'] >= 1
+        assert any(item['content'] == 'Test comment' for item in response.data['results'])
 
     def test_retrieve_comment(self, authenticated_client, issue, user):
         """
@@ -211,3 +216,86 @@ class TestCommentEndpoints:
         """
         assert str(comment.issue) in str(comment)
         assert 'Comment by' in str(comment)
+
+    def test_stranger_cannot_edit_or_delete_comment(
+        self, authenticated_client_other, issue, user
+    ):
+        """
+        Only the author can change a comment.
+        """
+        api_client, _other = authenticated_client_other
+        comment = Comment.objects.create(content='Original', issue=issue, author=user)
+        update = api_client.patch(f'/api/comments/{comment.id}/', {'content': 'Hijacked'})
+        remove = api_client.delete(f'/api/comments/{comment.id}/')
+        assert update.status_code == status.HTTP_403_FORBIDDEN
+        assert update.data['error'] == 'Forbidden'
+        assert remove.status_code == status.HTTP_403_FORBIDDEN
+        comment.refresh_from_db()
+        assert comment.content == 'Original'
+
+    def test_whitespace_comment_rejected(self, authenticated_client, issue):
+        """
+        A comment that is only whitespace is rejected.
+        """
+        api_client, _user = authenticated_client
+        response = api_client.post('/api/comments/', {'content': '   ', 'issue': issue.id})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert issue.comments.count() == 0
+
+    def test_oversized_comment_rejected(self, authenticated_client, issue):
+        """
+        Comment text has an upper bound.
+        """
+        api_client, _user = authenticated_client
+        response = api_client.post('/api/comments/', {
+            'content': 'a' * 5001,
+            'issue': issue.id,
+        })
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert issue.comments.count() == 0
+
+    def test_invalid_issue_filter_is_400(self, authenticated_client):
+        """
+        A non-numeric issue filter does not raise a server error.
+        """
+        api_client, _user = authenticated_client
+        response = api_client.get('/api/comments/?issue_id=nope')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_create_for_issue_rejects_non_numeric_id(self, authenticated_client):
+        """
+        The issue shortcut rejects a non-numeric issue id.
+        """
+        api_client, _user = authenticated_client
+        response = api_client.post(
+            '/api/comments/create-for-issue/abc/',
+            {'content': 'Nowhere'},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not Comment.objects.filter(content='Nowhere').exists()
+
+    def test_invalid_comment_lookup_is_400(self, authenticated_client):
+        """
+        A non-numeric comment id is a client error.
+        """
+        api_client, _user = authenticated_client
+        response = api_client.get('/api/comments/abc/')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_deleted_author_serializes(self, authenticated_client, issue, user, another_user):
+        """
+        A comment remains readable after its author is deleted.
+        """
+        comment = Comment.objects.create(content='Still here', issue=issue, author=user)
+        user.delete()
+        comment.refresh_from_db()
+        client = APIClient()
+        refresh = RefreshToken.for_user(another_user)
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        response = client.get(f'/api/comments/{comment.id}/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['author'] is None
+        assert response.data['author_name'] is None
+        assert response.data['author_email'] is None
+        assert response.data['content'] == 'Still here'
+        assert 'deleted user' in str(comment)

@@ -1,18 +1,31 @@
 """
 Views for issues app.
 """
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import DataError
 from django.shortcuts import get_object_or_404
+from rest_framework import status
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
+
+from bug_tracking.mixins import PositiveIntLookupMixin
+from bug_tracking.validation import parse_positive_int
 from projects.models import Project
+
 from .models import Issue
-from .serializers import IssueSerializer
 from .permissions import IsReporterOrAssignee
+from .serializers import IssueSerializer
+
+User = get_user_model()
+
+MUTATING_ACTIONS = {'update', 'partial_update', 'destroy', 'update_status', 'assign'}
 
 
-class IssueViewSet(viewsets.ModelViewSet):
+class IssueViewSet(PositiveIntLookupMixin, ModelViewSet):
     """
     ViewSet for Issue model.
     Provides CRUD operations for issues.
@@ -24,13 +37,14 @@ class IssueViewSet(viewsets.ModelViewSet):
         """
         Optimize queries using select_related and prefetch_related.
         """
-        queryset = Issue.objects.select_related('project', 'reporter', 'assignee').prefetch_related('comments')
-        
-        # Filter by project if project_id is provided
-        project_id = self.request.query_params.get('project_id')
-        if project_id:
+        queryset = Issue.objects.select_related(
+            'project', 'reporter', 'assignee'
+        ).prefetch_related('comments')
+
+        project_id = parse_positive_int(self.request.query_params.get('project_id'), 'project_id')
+        if project_id is not None:
             queryset = queryset.filter(project_id=project_id)
-        
+
         return queryset
 
     def perform_create(self, serializer):
@@ -41,26 +55,26 @@ class IssueViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """
-        Set permissions based on action.
+        Reporter, assignee, or staff may change an issue. Other users may read it.
         """
-        if self.action == 'partial_update' or self.action == 'update':
+        if self.action in MUTATING_ACTIONS:
             return [IsAuthenticated(), IsReporterOrAssignee()]
-        return super().get_permissions()
+        return [IsAuthenticated()]
 
     @action(detail=False, methods=['post'], url_path='create-for-project/(?P<project_id>[^/.]+)')
     def create_for_project(self, request, project_id=None):
         """
         Create an issue for a specific project.
         """
-        project = get_object_or_404(Project, pk=project_id)
+        parsed_id = parse_positive_int(project_id, 'project_id')
+        project = get_object_or_404(Project, pk=parsed_id)
 
         data = request.data.copy()
         data['project'] = project.id
         serializer = self.get_serializer(data=data)
-        if serializer.is_valid():
-            serializer.save(reporter=request.user, project=project)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(reporter=request.user, project=project)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['patch'])
     def update_status(self, request, pk=None):
@@ -68,15 +82,13 @@ class IssueViewSet(viewsets.ModelViewSet):
         Update the status of an issue.
         """
         issue = self.get_object()
-        self.check_object_permissions(request, issue)
-        
         new_status = request.data.get('status')
-        if not new_status:
+        if new_status in (None, ''):
             return Response({'error': 'Status is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        issue.status = new_status
-        issue.save()
-        serializer = self.get_serializer(issue)
+
+        serializer = self.get_serializer(issue, data={'status': new_status}, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(serializer.data)
 
     @action(detail=True, methods=['patch'])
@@ -85,20 +97,21 @@ class IssueViewSet(viewsets.ModelViewSet):
         Assign an issue to a user.
         """
         issue = self.get_object()
-        self.check_object_permissions(request, issue)
-        
-        assignee_id = request.data.get('assignee_id')
-        if not assignee_id:
+        if 'assignee_id' not in request.data or request.data.get('assignee_id') in (None, ''):
             issue.assignee = None
-        else:
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            try:
-                assignee = User.objects.get(pk=assignee_id)
-                issue.assignee = assignee
-            except User.DoesNotExist:
-                return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
-        
+            issue.save()
+            return Response(self.get_serializer(issue).data)
+
+        try:
+            assignee_id = parse_positive_int(request.data.get('assignee_id'), 'assignee_id')
+        except ValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            assignee = User.objects.get(pk=assignee_id)
+        except (User.DoesNotExist, DjangoValidationError, DataError, OverflowError, ValueError):
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        issue.assignee = assignee
         issue.save()
-        serializer = self.get_serializer(issue)
-        return Response(serializer.data)
+        return Response(self.get_serializer(issue).data)

@@ -2,8 +2,15 @@
 Tests for issues app.
 """
 import pytest
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from rest_framework import status
+from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from projects.models import Project
+
 from .models import Issue
 
 
@@ -52,7 +59,8 @@ class TestIssueEndpoints:
         )
         response = api_client.get('/api/issues/')
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
+        assert response.data['count'] >= 1
+        assert any(item['title'] == 'Test Issue' for item in response.data['results'])
 
     def test_retrieve_issue(self, authenticated_client, project, user):
         """
@@ -361,3 +369,155 @@ class TestIssueEndpoints:
         """
         assert str(issue) == 'Test Issue'
         issue.clean()
+
+    def test_clean_rejects_unknown_status(self, issue):
+        """
+        Model validation rejects a status outside the supported choices.
+        """
+        issue.status = 'bogus'
+        with pytest.raises(ValidationError):
+            issue.clean()
+
+    def test_database_rejects_invalid_status(self, issue):
+        """
+        The database constraint rejects a status the serializer did not see.
+        """
+        issue.status = 'bogus'
+        with pytest.raises(IntegrityError):
+            with transaction.atomic():
+                issue.save()
+        issue.refresh_from_db()
+        assert issue.status == 'open'
+
+    def test_stranger_cannot_update_status_or_assign(self, authenticated_client_other, project, user):
+        """
+        Someone who is neither reporter nor assignee cannot change status or assignee.
+        """
+        api_client, _other = authenticated_client_other
+        issue = Issue.objects.create(
+            title='Protected status',
+            description='Leave this alone',
+            project=project,
+            reporter=user,
+            status='open',
+        )
+        status_response = api_client.patch(
+            f'/api/issues/{issue.id}/update_status/',
+            {'status': 'closed'},
+        )
+        assign_response = api_client.patch(
+            f'/api/issues/{issue.id}/assign/',
+            {'assignee_id': user.id},
+        )
+        delete_response = api_client.delete(f'/api/issues/{issue.id}/')
+        assert status_response.status_code == status.HTTP_403_FORBIDDEN
+        assert assign_response.status_code == status.HTTP_403_FORBIDDEN
+        assert delete_response.status_code == status.HTTP_403_FORBIDDEN
+        issue.refresh_from_db()
+        assert issue.status == 'open'
+        assert issue.assignee_id is None
+
+    def test_update_status_rejects_unknown_value(self, authenticated_client, project, user):
+        """
+        The status action uses the same choices as the serializer.
+        """
+        api_client, _user = authenticated_client
+        issue = Issue.objects.create(
+            title='Status check',
+            description='Invalid status should fail',
+            project=project,
+            reporter=user,
+        )
+        response = api_client.patch(
+            f'/api/issues/{issue.id}/update_status/',
+            {'status': 'hacked'},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        issue.refresh_from_db()
+        assert issue.status == 'open'
+
+    def test_assign_rejects_non_integer_id(self, authenticated_client, project, user):
+        """
+        A malformed assignee id is a client error.
+        """
+        api_client, _user = authenticated_client
+        issue = Issue.objects.create(
+            title='Bad assignee',
+            description='Not a number',
+            project=project,
+            reporter=user,
+        )
+        response = api_client.patch(
+            f'/api/issues/{issue.id}/assign/',
+            {'assignee_id': 'not-an-id'},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        issue.refresh_from_db()
+        assert issue.assignee_id is None
+
+    def test_invalid_project_filter_is_400(self, authenticated_client):
+        """
+        A non-numeric project filter does not raise a server error.
+        """
+        api_client, _user = authenticated_client
+        for project_id in ('abc', '0', '-1'):
+            response = api_client.get(f'/api/issues/?project_id={project_id}')
+            assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_invalid_issue_lookup_is_400(self, authenticated_client):
+        """
+        A non-numeric issue id is a client error.
+        """
+        api_client, _user = authenticated_client
+        response = api_client.get('/api/issues/abc/')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_create_for_project_rejects_non_numeric_id(self, authenticated_client):
+        """
+        The project shortcut rejects a non-numeric project id.
+        """
+        api_client, _user = authenticated_client
+        response = api_client.post(
+            '/api/issues/create-for-project/abc/',
+            {'title': 'Missing', 'description': 'No project'},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not Issue.objects.filter(title='Missing').exists()
+
+    def test_whitespace_title_rejected(self, authenticated_client, project):
+        """
+        A title that is only whitespace is rejected.
+        """
+        api_client, _user = authenticated_client
+        response = api_client.post('/api/issues/', {
+            'title': '   ',
+            'description': 'Has a description',
+            'project': project.id,
+        })
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not Issue.objects.filter(description='Has a description').exists()
+
+    def test_deleted_reporter_serializes(self, authenticated_client, project, user):
+        """
+        An issue remains readable after its reporter is removed.
+        """
+        issue = Issue.objects.create(
+            title='Orphaned',
+            description='Reporter went away',
+            project=project,
+            reporter=user,
+        )
+        user.delete()
+        other = get_user_model().objects.create_user(
+            email='reader@example.com',
+            username='issuereader',
+            password='testpass123',
+        )
+        client = APIClient()
+        refresh = RefreshToken.for_user(other)
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        response = client.get(f'/api/issues/{issue.id}/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['reporter'] is None
+        assert response.data['reporter_name'] is None
+        assert response.data['title'] == 'Orphaned'

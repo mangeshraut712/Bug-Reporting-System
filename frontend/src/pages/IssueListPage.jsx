@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { projectsAPI, issuesAPI } from '../services/api';
+import { asList, issuesAPI, projectsAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import { Plus, AlertCircle } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -33,7 +33,7 @@ const IssueListPage = () => {
         return;
       }
       setProject(projectRes.data);
-      setIssues(issuesRes.data);
+      setIssues(asList(issuesRes.data));
     } catch (error) {
       if (current === requestId.current) {
         toast.error('Failed to fetch data');
