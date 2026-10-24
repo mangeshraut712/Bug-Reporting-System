@@ -69,4 +69,19 @@ describe('demo store', () => {
     expect(isDemoMode()).toBe(false);
     expect(localStorage.getItem('access_token')).toBeNull();
   });
+
+  test('reseeds a corrupt demo store instead of crashing', async () => {
+    localStorage.setItem('bugtracker_demo_store', '{');
+    enableDemoMode();
+    const projects = await demoProjectsAPI.list();
+    expect(projects.data.map((project) => project.name)).toEqual([
+      'Checkout Service',
+      'Mobile App',
+    ]);
+  });
+
+  test('rejects an update for a project that is not in the store', async () => {
+    enableDemoMode();
+    await expect(demoProjectsAPI.update(999, { name: 'Nope' })).rejects.toThrow(/not found/i);
+  });
 });

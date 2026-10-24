@@ -287,10 +287,13 @@ The frontend will be available at `http://localhost:3000`
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/register/` - Register a new user
+- `POST /api/auth/register/` - Register a new user. Email and username are unique regardless of letter case.
 - `POST /api/auth/login/` - Login user
 - `POST /api/auth/logout/` - Logout user
 - `GET /api/auth/users/me/` - Get current user
+- `POST /api/auth/password/change/` - Change the signed-in user's password. The current password is required, and existing access and refresh tokens stop working.
+- `POST /api/auth/password/reset/` - Request a password-reset email. Rate limited. An unknown address gets the same response as a known one.
+- `POST /api/auth/password/reset/confirm/` - Set a new password from a reset token. Existing tokens are revoked.
 
 ### Projects
 - `GET /api/projects/` - List all projects
@@ -298,10 +301,10 @@ The frontend will be available at `http://localhost:3000`
 - `GET /api/projects/{id}/` - Retrieve a project
 - `PATCH /api/projects/{id}/` - Update a project
 - `DELETE /api/projects/{id}/` - Delete a project
-- `GET /api/projects/{id}/issues/` - Get issues for a project
+- `GET /api/projects/{id}/issues/` - List issues for a project. Paginated. Optional `status`, `priority`, and `search` filters.
 
 ### Issues
-- `GET /api/issues/` - List all issues
+- `GET /api/issues/` - List issues. Paginated. Optional `project_id`, `status`, `priority`, and `search` filters. An issue cannot be moved to another project.
 - `POST /api/issues/` - Create a new issue
 - `GET /api/issues/{id}/` - Retrieve an issue
 - `PATCH /api/issues/{id}/` - Update an issue
@@ -311,7 +314,7 @@ The frontend will be available at `http://localhost:3000`
 - `POST /api/issues/create-for-project/{project_id}/` - Create issue for project
 
 ### Comments
-- `GET /api/comments/` - List all comments
+- `GET /api/comments/` - List comments, oldest first. Optional `issue_id`. A comment cannot be moved to another issue.
 - `POST /api/comments/` - Create a new comment
 - `GET /api/comments/{id}/` - Retrieve a comment
 - `PATCH /api/comments/{id}/` - Update a comment
@@ -352,13 +355,7 @@ docker-compose down
 
 ### Backend tests
 
-33 pytest test cases across the Django apps:
-- Accounts: 5 (registration, login, authentication)
-- Projects: 8 (CRUD, filtering, relationships)
-- Issues: 11 (CRUD, status updates, permissions)
-- Comments: 9 (CRUD, filtering, relationships)
-
-Run `pytest --cov` (below) to measure coverage on your machine.
+Run `pytest` in `backend/` and `npm test` in `frontend/`. The commands below measure coverage on your machine.
 
 ### Run Backend Tests
 
@@ -439,27 +436,28 @@ REACT_APP_API_URL=http://localhost:8000/api
 3. Backend returns JWT access and refresh tokens
 4. Frontend stores tokens in localStorage
 5. Axios interceptor automatically adds Authorization header to requests
-6. If token expires, user is redirected to login page
+6. If the access token expires, the client exchanges the refresh token and retries the request
+7. Paginated collections follow same-origin `next` links with the API prefix removed, so Axios does not request `/api/api/...`
 
 ## Database Models
 
 ### User
-- email (unique)
-- username (unique)
+- email (unique, case-insensitive)
+- username (unique, case-insensitive)
 - first_name
 - last_name
 - password (hashed)
 
 ### Project
 - name
-- description
+- description (maximum 10,000 characters)
 - created_by (ForeignKey to User)
 - created_at
 - updated_at
 
 ### Issue
 - title
-- description
+- description (maximum 10,000 characters)
 - status (open, in_progress, closed)
 - priority (low, medium, high, critical)
 - project (ForeignKey to Project)
@@ -469,7 +467,7 @@ REACT_APP_API_URL=http://localhost:8000/api
 - updated_at
 
 ### Comment
-- content
+- content (maximum 5,000 characters, returned oldest first)
 - issue (ForeignKey to Issue)
 - author (ForeignKey to User)
 - created_at
@@ -478,7 +476,9 @@ REACT_APP_API_URL=http://localhost:8000/api
 ## Permissions
 
 - **IsAuthenticated**: All API endpoints require authentication
-- **IsReporterOrAssignee**: Only issue reporter or assignee can update issue status/assignee
+- **IsProjectOwnerOrReadOnly**: Any signed-in user can read a project. Only its creator or staff can change it.
+- **IsReporterOrAssignee**: The reporter, assignee, project creator, or staff can change an issue. Disabled accounts cannot be assigned.
+- **IsCommentAuthor**: The comment author, the project creator, or staff can change a comment.
 
 ## Security Features
 
@@ -493,12 +493,12 @@ REACT_APP_API_URL=http://localhost:8000/api
 - **Input Validation**: Comprehensive serializers with field validation
 - **SQL Injection Prevention**: Django ORM with parameterized queries
 - **XSS Protection**: React's built-in XSS prevention
-- **Rate Limiting**: Planned implementation for API endpoints
+- **Rate Limiting**: Login, registration, token refresh, and password reset are rate limited per client
 - **Data Encryption**: Secure storage of sensitive information
 
 ### API Security
 - **Permission Classes**: Granular access control per endpoint
-- **Request Throttling**: Configurable rate limits (planned)
+- **Request Throttling**: Login, registration, refresh, and password reset have per-client limits
 - **Audit Logging**: Comprehensive logging of user actions
 - **Secure Headers**: Security middleware for production deployment
 
@@ -519,7 +519,7 @@ REACT_APP_API_URL=http://localhost:8000/api
 - **Related Resources**: Embedded relationships and hypermedia links
 
 ### Performance Optimizations
-- **Database Optimization**: select_related() and prefetch_related() for N+1 query elimination
+- **Database Optimization**: select_related() for parent rows and Count annotations for issue and comment totals
 - **Indexing Strategy**: Strategic database indexes on frequently queried fields
 - **Caching Layer**: Redis caching for improved response times (planned)
 - **Query Optimization**: Efficient ORM queries with minimal database hits

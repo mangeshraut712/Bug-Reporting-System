@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import { Mail, Lock, User } from 'lucide-react';
+import { firstFieldError } from '../services/formErrors';
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -40,8 +41,7 @@ const RegisterPage = () => {
       toast.success('Registration successful! Please log in.');
       navigate('/login');
     } catch (error) {
-      const errorMsg = error.response?.data?.password?.[0] || 'Registration failed';
-      toast.error(errorMsg);
+      toast.error(firstFieldError(error.response?.data, 'Registration failed'));
     } finally {
       setLoading(false);
     }
@@ -60,17 +60,19 @@ const RegisterPage = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="register-email" className="block text-sm font-medium text-gray-700 mb-1">
               Email Address
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
+              <Mail className="absolute left-3 top-3 text-gray-400" size={20} aria-hidden="true" />
               <input
+                id="register-email"
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
                 required
+                autoComplete="email"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
                 placeholder="you@example.com"
               />
@@ -78,17 +80,19 @@ const RegisterPage = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="register-username" className="block text-sm font-medium text-gray-700 mb-1">
               Username
             </label>
             <div className="relative">
-              <User className="absolute left-3 top-3 text-gray-400" size={20} />
+              <User className="absolute left-3 top-3 text-gray-400" size={20} aria-hidden="true" />
               <input
+                id="register-username"
                 type="text"
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
                 required
+                autoComplete="username"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
                 placeholder="username"
               />
@@ -97,27 +101,31 @@ const RegisterPage = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="register-first-name" className="block text-sm font-medium text-gray-700 mb-1">
                 First Name
               </label>
               <input
+                id="register-first-name"
                 type="text"
                 name="first_name"
                 value={formData.first_name}
                 onChange={handleChange}
+                autoComplete="given-name"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
                 placeholder="John"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="register-last-name" className="block text-sm font-medium text-gray-700 mb-1">
                 Last Name
               </label>
               <input
+                id="register-last-name"
                 type="text"
                 name="last_name"
                 value={formData.last_name}
                 onChange={handleChange}
+                autoComplete="family-name"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
                 placeholder="Doe"
               />
@@ -125,17 +133,19 @@ const RegisterPage = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="register-password" className="block text-sm font-medium text-gray-700 mb-1">
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
+              <Lock className="absolute left-3 top-3 text-gray-400" size={20} aria-hidden="true" />
               <input
+                id="register-password"
                 type="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
                 required
+                autoComplete="new-password"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
                 placeholder="••••••••"
               />
@@ -143,17 +153,19 @@ const RegisterPage = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="register-password-confirm" className="block text-sm font-medium text-gray-700 mb-1">
               Confirm Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
+              <Lock className="absolute left-3 top-3 text-gray-400" size={20} aria-hidden="true" />
               <input
+                id="register-password-confirm"
                 type="password"
                 name="password_confirm"
                 value={formData.password_confirm}
                 onChange={handleChange}
                 required
+                autoComplete="new-password"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
                 placeholder="••••••••"
               />

@@ -20,8 +20,15 @@ function App() {
     <Router basename={routerBasename || undefined}>
       <AuthProvider>
         <div className="min-h-screen bg-gray-50">
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-blue-700 focus:shadow"
+          >
+            Skip to content
+          </a>
           <Navbar />
-          <Routes>
+          <main id="main">
+            <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route
@@ -48,8 +55,9 @@ function App() {
                 </PrivateRoute>
               }
             />
-            <Route path="/" element={<Navigate to="/dashboard" />} />
-          </Routes>
+              <Route path="/" element={<Navigate to="/dashboard" />} />
+            </Routes>
+          </main>
           <ToastContainer
             position="bottom-right"
             autoClose={3000}

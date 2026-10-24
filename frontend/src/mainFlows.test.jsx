@@ -38,6 +38,8 @@ describe('main flows', () => {
     renderAt('/');
 
     expect(await screen.findByRole('heading', { name: 'Bug Tracker' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Email Address')).toBeRequired();
+    expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'current-password');
     expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /explore demo workspace/i })).toBeInTheDocument();
   });
@@ -53,11 +55,13 @@ describe('main flows', () => {
     const user = userEvent.setup();
     renderAt('/login');
 
-    const menuButton = screen.getByRole('navigation').querySelector('button.md\\:hidden');
+    const menuButton = screen.getByRole('button', { name: 'Open menu' });
+    expect(menuButton).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getAllByRole('link', { name: 'Register' })).toHaveLength(1);
 
     await user.click(menuButton);
 
+    expect(menuButton).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getAllByRole('link', { name: 'Register' })).toHaveLength(2);
     expect(screen.getAllByRole('link', { name: 'Login' })).toHaveLength(2);
   });
@@ -195,6 +199,24 @@ describe('main flows', () => {
     );
   });
 
+  test('shows the field error when registration is rejected', async () => {
+    const user = userEvent.setup();
+    apiMock.post.mockRejectedValueOnce({
+      response: { status: 400, data: { email: ['A user with this email already exists.'] } },
+    });
+    renderAt('/register');
+
+    await user.type(screen.getByLabelText('Email Address'), 'ada@example.com');
+    await user.type(screen.getByLabelText('Username'), 'ada');
+    const [password, confirm] = screen.getAllByPlaceholderText('••••••••');
+    await user.type(password, 'long-password');
+    await user.type(confirm, 'long-password');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    expect(await screen.findByText('A user with this email already exists.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument();
+  });
+
   test('walks the demo workspace from projects through a comment', async () => {
     const user = userEvent.setup();
     renderAt('/login');
@@ -208,6 +230,7 @@ describe('main flows', () => {
     expect(screen.getByText('Demo')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /new project/i }));
+    expect(screen.getByRole('dialog', { name: 'Create New Project' })).toBeInTheDocument();
     await user.type(screen.getByPlaceholderText('My Project'), 'Billing API');
     await user.type(screen.getByPlaceholderText('Project description...'), 'Invoices and receipts');
     await user.click(screen.getByRole('button', { name: 'Create' }));
@@ -263,5 +286,62 @@ describe('main flows', () => {
     expect(await screen.findByRole('button', { name: 'Sign In' })).toBeInTheDocument();
     expect(screen.queryByText(/welcome, alex/i)).not.toBeInTheDocument();
     expect(localStorage.getItem('demo_mode')).toBeNull();
+  });
+
+  test('lets a project owner update status on an issue they did not report', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem('access_token', 'access-token');
+    apiMock.get.mockImplementation((url) => {
+      if (url === '/auth/users/me/') {
+        return Promise.resolve({
+          data: { id: 9, email: 'ada@example.com', first_name: 'Ada', username: 'ada' },
+        });
+      }
+      if (url === '/issues/7/') {
+        return Promise.resolve({
+          data: {
+            id: 7,
+            title: 'Owned by Ada',
+            description: 'Filed by someone else',
+            status: 'open',
+            priority: 'low',
+            project_name: 'Checkout Service',
+            project_created_by: 9,
+            reporter: 3,
+            reporter_name: 'Other Person',
+            assignee: null,
+            assignee_name: null,
+            created_at: '2026-01-15T00:00:00Z',
+            comment_count: 0,
+          },
+        });
+      }
+      if (url === '/comments/') {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.reject(new Error(`unexpected ${url}`));
+    });
+    apiMock.patch.mockResolvedValue({
+      data: {
+        id: 7,
+        title: 'Owned by Ada',
+        description: 'Filed by someone else',
+        status: 'closed',
+        priority: 'low',
+        project_name: 'Checkout Service',
+        project_created_by: 9,
+        reporter: 3,
+        reporter_name: 'Other Person',
+        assignee: null,
+        created_at: '2026-01-15T00:00:00Z',
+        comment_count: 0,
+      },
+    });
+    renderAt('/issues/7');
+
+    expect(await screen.findByRole('heading', { name: 'Owned by Ada' })).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Update Status'), 'closed');
+    expect(await screen.findByText('closed')).toBeInTheDocument();
+    expect(apiMock.patch).toHaveBeenCalledWith('/issues/7/update_status/', { status: 'closed' });
   });
 });

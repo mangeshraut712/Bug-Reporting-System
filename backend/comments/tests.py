@@ -138,6 +138,7 @@ class TestCommentEndpoints:
         response = api_client.get(f'/api/comments/?issue_id={issue.id}')
         assert response.status_code == status.HTTP_200_OK
         assert response.data['count'] == 2
+        assert [item['content'] for item in response.data['results']] == ['Comment 1', 'Comment 2']
 
     def test_create_comment_unauthenticated(self, api_client, issue):
         """
@@ -299,3 +300,32 @@ class TestCommentEndpoints:
         assert response.data['author_email'] is None
         assert response.data['content'] == 'Still here'
         assert 'deleted user' in str(comment)
+
+    def test_comment_cannot_be_moved_to_another_issue(self, authenticated_client, issue, user):
+        """Editing a comment does not attach it to a different issue."""
+        api_client, _user = authenticated_client
+        comment = Comment.objects.create(content='Original', issue=issue, author=user)
+        other = Issue.objects.create(
+            title='Other issue',
+            description='A second thread',
+            project=issue.project,
+            reporter=user,
+        )
+        response = api_client.patch(f'/api/comments/{comment.id}/', {
+            'issue': other.id,
+            'content': 'Edited',
+        })
+        assert response.status_code == status.HTTP_200_OK
+        comment.refresh_from_db()
+        assert comment.issue_id == issue.id
+        assert comment.content == 'Edited'
+
+    def test_project_owner_can_delete_someone_elses_comment(
+        self, authenticated_client, issue, another_user
+    ):
+        """The project owner can remove a comment they did not write."""
+        api_client, _owner = authenticated_client
+        comment = Comment.objects.create(content='Spam', issue=issue, author=another_user)
+        response = api_client.delete(f'/api/comments/{comment.id}/')
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Comment.objects.filter(id=comment.id).exists()

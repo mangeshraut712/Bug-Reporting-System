@@ -29,7 +29,9 @@ class CommentViewSet(PositiveIntLookupMixin, ModelViewSet):
         """
         Optimize queries using select_related.
         """
-        queryset = Comment.objects.select_related('author', 'issue')
+        queryset = Comment.objects.select_related('author', 'issue__project').order_by(
+            'created_at', 'id'
+        )
         issue_id = parse_positive_int(self.request.query_params.get('issue_id'), 'issue_id')
         if issue_id is not None:
             queryset = queryset.filter(issue_id=issue_id)

@@ -4,11 +4,13 @@ Tests for issues app.
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
+from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from comments.models import Comment
 from projects.models import Project
 
 from .models import Issue
@@ -520,4 +522,131 @@ class TestIssueEndpoints:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['reporter'] is None
         assert response.data['reporter_name'] is None
+        assert response.data['project_created_by'] is None
         assert response.data['title'] == 'Orphaned'
+
+    def test_list_issues_filters_status_priority_and_search(self, authenticated_client, project, user):
+        """The issue list honors the same filters as a project's issue list."""
+        api_client, _user = authenticated_client
+        Issue.objects.create(
+            title='Checkout crash',
+            description='Guests cannot pay',
+            status='open',
+            priority='high',
+            project=project,
+            reporter=user,
+        )
+        Issue.objects.create(
+            title='Receipt email',
+            description='The tax row is missing',
+            status='closed',
+            priority='low',
+            project=project,
+            reporter=user,
+        )
+        response = api_client.get('/api/issues/?status=closed&priority=low&search=tax')
+        assert response.status_code == status.HTTP_200_OK
+        assert [item['title'] for item in response.data['results']] == ['Receipt email']
+
+    def test_list_issues_rejects_unknown_status_filter(self, authenticated_client):
+        """An unknown status filter is a client error on the issue list too."""
+        api_client, _user = authenticated_client
+        response = api_client.get('/api/issues/?status=hacked')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_project_owner_can_remove_an_issue_they_did_not_report(
+        self, authenticated_client, project, another_user
+    ):
+        """The project creator can moderate issues filed by someone else."""
+        api_client, _owner = authenticated_client
+        issue = Issue.objects.create(
+            title='Filed by someone else',
+            description='The owner should still be able to remove it',
+            project=project,
+            reporter=another_user,
+        )
+        response = api_client.delete(f'/api/issues/{issue.id}/')
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Issue.objects.filter(id=issue.id).exists()
+
+    def test_issue_cannot_be_moved_to_another_project(self, authenticated_client, project, user):
+        """Updating an issue does not change the project it belongs to."""
+        api_client, _user = authenticated_client
+        issue = Issue.objects.create(
+            title='Stay put',
+            description='Do not move this',
+            project=project,
+            reporter=user,
+        )
+        other = Project.objects.create(
+            name='Elsewhere',
+            description='A different project',
+            created_by=user,
+        )
+        response = api_client.patch(f'/api/issues/{issue.id}/', {
+            'project': other.id,
+            'title': 'Renamed',
+        })
+        assert response.status_code == status.HTTP_200_OK
+        issue.refresh_from_db()
+        assert issue.project_id == project.id
+        assert issue.title == 'Renamed'
+
+    def test_inactive_user_cannot_be_assigned(
+        self, authenticated_client, project, user, another_user
+    ):
+        """Disabled accounts are not valid assignees."""
+        api_client, _user = authenticated_client
+        another_user.is_active = False
+        another_user.save(update_fields=['is_active'])
+        issue = Issue.objects.create(
+            title='Unassigned',
+            description='Leave this with nobody inactive',
+            project=project,
+            reporter=user,
+        )
+        via_action = api_client.patch(
+            f'/api/issues/{issue.id}/assign/',
+            {'assignee_id': another_user.id},
+        )
+        via_update = api_client.patch(
+            f'/api/issues/{issue.id}/',
+            {'assignee': another_user.id},
+        )
+        assert via_action.status_code == status.HTTP_400_BAD_REQUEST
+        assert via_update.status_code == status.HTTP_400_BAD_REQUEST
+        issue.refresh_from_db()
+        assert issue.assignee_id is None
+
+    def test_oversized_description_rejected(self, authenticated_client, project):
+        """Issue descriptions have an upper bound."""
+        api_client, _user = authenticated_client
+        response = api_client.post('/api/issues/', {
+            'title': 'Too long',
+            'description': 'd' * 10_001,
+            'project': project.id,
+        })
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not Issue.objects.filter(title='Too long').exists()
+
+    def test_issue_list_counts_comments_without_a_query_per_issue(
+        self, authenticated_client, project, user
+    ):
+        """Listing issues counts comments in the list query."""
+        api_client, _user = authenticated_client
+        for index in range(6):
+            issue = Issue.objects.create(
+                title=f'Thread {index}',
+                description='Has one comment',
+                project=project,
+                reporter=user,
+            )
+            Comment.objects.create(content=f'Note {index}', issue=issue, author=user)
+        with CaptureQueriesContext(connection) as captured:
+            response = api_client.get(f'/api/issues/?project_id={project.id}')
+        assert response.status_code == status.HTTP_200_OK
+        assert [item['title'] for item in response.data['results']] == [
+            'Thread 5', 'Thread 4', 'Thread 3', 'Thread 2', 'Thread 1', 'Thread 0',
+        ]
+        assert [item['comment_count'] for item in response.data['results']] == [1, 1, 1, 1, 1, 1]
+        assert len(captured) <= 5

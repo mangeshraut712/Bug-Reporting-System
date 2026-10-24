@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { asList, issuesAPI, projectsAPI } from '../services/api';
+import { firstFieldError } from '../services/formErrors';
 import { toast } from 'react-toastify';
 import { Plus, AlertCircle } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
+import Modal from '../components/Modal';
 
 const IssueListPage = () => {
   const { projectId } = useParams();
@@ -11,54 +13,83 @@ const IssueListPage = () => {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [filters, setFilters] = useState({
-    status: '',
-    priority: '',
-    search: '',
-  });
+  const [status, setStatus] = useState('');
+  const [priority, setPriority] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [search, setSearch] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     priority: 'medium',
   });
+  const [submitting, setSubmitting] = useState(false);
   const requestId = useRef(0);
 
-  const fetchProjectAndIssues = useCallback(async () => {
+  useEffect(() => {
+    const handle = setTimeout(() => setSearch(searchText.trim()), 200);
+    return () => clearTimeout(handle);
+  }, [searchText]);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    projectsAPI
+      .retrieve(projectId)
+      .then((response) => {
+        if (active) {
+          setProject(response.data);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          toast.error('Failed to fetch data');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
+
+  const loadIssues = useCallback(async () => {
     const current = requestId.current + 1;
     requestId.current = current;
     try {
-      const projectRes = await projectsAPI.retrieve(projectId);
-      const issuesRes = await projectsAPI.getIssues(projectId, filters);
-      if (current !== requestId.current) {
-        return;
+      const issuesRes = await projectsAPI.getIssues(projectId, { status, priority, search });
+      if (current === requestId.current) {
+        setIssues(asList(issuesRes.data));
       }
-      setProject(projectRes.data);
-      setIssues(asList(issuesRes.data));
     } catch (error) {
       if (current === requestId.current) {
         toast.error('Failed to fetch data');
       }
-    } finally {
-      if (current === requestId.current) {
-        setLoading(false);
-      }
     }
-  }, [projectId, filters]);
+  }, [projectId, status, priority, search]);
 
   useEffect(() => {
-    fetchProjectAndIssues();
-  }, [fetchProjectAndIssues]);
+    loadIssues();
+  }, [loadIssues]);
 
   const handleCreateIssue = async (e) => {
     e.preventDefault();
+    if (submitting) {
+      return;
+    }
     try {
+      setSubmitting(true);
       await issuesAPI.createForProject(projectId, formData);
       toast.success('Issue created successfully!');
       setFormData({ title: '', description: '', priority: 'medium' });
       setShowModal(false);
-      fetchProjectAndIssues();
+      loadIssues();
     } catch (error) {
-      toast.error('Failed to create issue');
+      toast.error(firstFieldError(error.response?.data, 'Failed to create issue'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -96,6 +127,7 @@ const IssueListPage = () => {
             <p className="text-gray-600 mt-2">{project?.description}</p>
           </div>
           <button
+            type="button"
             onClick={() => setShowModal(true)}
             className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
           >
@@ -108,12 +140,13 @@ const IssueListPage = () => {
         <div className="bg-white rounded-lg shadow p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="issue-status-filter" className="block text-sm font-medium text-gray-700 mb-1">
                 Status
               </label>
               <select
-                value={filters.status}
-                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                id="issue-status-filter"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
               >
                 <option value="">All Statuses</option>
@@ -123,12 +156,13 @@ const IssueListPage = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="issue-priority-filter" className="block text-sm font-medium text-gray-700 mb-1">
                 Priority
               </label>
               <select
-                value={filters.priority}
-                onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
+                id="issue-priority-filter"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
               >
                 <option value="">All Priorities</option>
@@ -139,13 +173,14 @@ const IssueListPage = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="issue-search" className="block text-sm font-medium text-gray-700 mb-1">
                 Search
               </label>
               <input
-                type="text"
-                value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                id="issue-search"
+                type="search"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
                 placeholder="Search issues..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
               />
@@ -161,19 +196,19 @@ const IssueListPage = () => {
             <p className="text-gray-600">Create your first issue to get started</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <ul className="list-none space-y-4">
             {issues.map((issue) => (
-              <Link
-                key={issue.id}
-                to={`/issues/${issue.id}`}
-                className="block bg-white rounded-lg shadow hover:shadow-lg transition p-6 cursor-pointer border border-gray-100"
-              >
+              <li key={issue.id}>
+                <Link
+                  to={`/issues/${issue.id}`}
+                  className="block bg-white rounded-lg shadow hover:shadow-lg transition p-6 cursor-pointer border border-gray-100"
+                >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-900 hover:text-blue-600">
+                    <h3 className="text-lg font-bold text-gray-900 hover:text-blue-600 wrap-break-word">
                       {issue.title}
                     </h3>
-                    <p className="text-gray-600 text-sm mt-1 line-clamp-2">
+                    <p className="text-gray-600 text-sm mt-1 line-clamp-2 wrap-break-word">
                       {issue.description}
                     </p>
                   </div>
@@ -193,23 +228,23 @@ const IssueListPage = () => {
                   </div>
                   <span>{new Date(issue.created_at).toLocaleDateString()}</span>
                 </div>
-              </Link>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
 
       {/* Create Issue Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Create New Issue</h2>
+        <Modal title="Create New Issue" onClose={() => setShowModal(false)}>
             <form onSubmit={handleCreateIssue} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="issue-title" className="block text-sm font-medium text-gray-700 mb-1">
                   Title
                 </label>
                 <input
+                  id="issue-title"
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -219,10 +254,11 @@ const IssueListPage = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="issue-description" className="block text-sm font-medium text-gray-700 mb-1">
                   Description
                 </label>
                 <textarea
+                  id="issue-description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   required
@@ -232,10 +268,11 @@ const IssueListPage = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="issue-priority" className="block text-sm font-medium text-gray-700 mb-1">
                   Priority
                 </label>
                 <select
+                  id="issue-priority"
                   value={formData.priority}
                   onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
@@ -256,14 +293,14 @@ const IssueListPage = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Create
+                  {submitting ? 'Creating...' : 'Create'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

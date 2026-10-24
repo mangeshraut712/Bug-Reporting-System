@@ -77,7 +77,7 @@ ROOT_URLCONF = 'bug_tracking.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -144,6 +144,7 @@ REST_FRAMEWORK = {
         'login': '10/min',
         'register': '5/min',
         'refresh': '30/min',
+        'password_reset': '5/min',
     },
 }
 
@@ -156,6 +157,9 @@ SIMPLE_JWT = {
     'UPDATE_LAST_LOGIN': True,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
+    # Access tokens carry a hash of the password so a password change
+    # invalidates tokens that have not expired yet.
+    'CHECK_REVOKE_TOKEN': True,
 }
 
 # CORS Configuration. Credentials stay off because the SPA sends the JWT header.
@@ -194,6 +198,7 @@ REST_AUTH = {
     'JWT_AUTH_REFRESH_COOKIE': None,
     'USER_DETAILS_SERIALIZER': 'accounts.serializers.CustomUserDetailsSerializer',
     'LOGIN_SERIALIZER': 'accounts.serializers.EmailLoginSerializer',
+    'OLD_PASSWORD_FIELD_ENABLED': True,
 }
 
 EMAIL_BACKEND = config(

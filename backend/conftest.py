@@ -23,6 +23,7 @@ def relaxed_auth_throttles():
         'login': '1000/min',
         'register': '1000/min',
         'refresh': '1000/min',
+        'password_reset': '1000/min',
     })
     yield
     rates.clear()

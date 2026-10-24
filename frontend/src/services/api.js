@@ -27,26 +27,28 @@ function isUnauthenticatedPath(url) {
   return UNAUTHENTICATED_PATHS.some((path) => (url || '').includes(path));
 }
 
-function apiBase() {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
-  return new URL(API_BASE_URL, origin);
-}
+export const MAX_LIST_PAGES = 100;
 
-function safeNextPath(nextUrl) {
+// DRF's next link is an absolute URL whose path includes the API prefix.
+// Axios joins that path onto baseURL, so the prefix has to be removed or page
+// 2 is requested at /api/api/... and every later page is dropped.
+export function nextPagePath(nextUrl, apiBaseUrl = API_BASE_URL) {
   if (!nextUrl || typeof nextUrl !== 'string') {
     return null;
   }
   try {
-    const base = apiBase();
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+    const base = new URL(apiBaseUrl, origin);
     const next = new URL(nextUrl, base);
     if (next.origin !== base.origin) {
       return null;
     }
     const basePath = base.pathname.replace(/\/$/, '');
-    if (next.pathname !== basePath && !next.pathname.startsWith(`${basePath}/`)) {
+    if (basePath && next.pathname !== basePath && !next.pathname.startsWith(`${basePath}/`)) {
       return null;
     }
-    return `${next.pathname}${next.search}`;
+    const relative = basePath ? next.pathname.slice(basePath.length) || '/' : next.pathname;
+    return `${relative}${next.search}`;
   } catch {
     return null;
   }
@@ -67,9 +69,9 @@ async function getAllPages(path, params) {
   let nextPath = path;
   let nextParams = params;
   const seen = new Set();
-  for (let page = 0; page < 20 && nextPath; page += 1) {
+  for (let page = 0; page < MAX_LIST_PAGES && nextPath; page += 1) {
     if (seen.has(nextPath)) {
-      break;
+      throw new Error('Pagination did not advance.');
     }
     seen.add(nextPath);
     const response = await api.get(nextPath, nextParams ? { params: nextParams } : undefined);
@@ -82,7 +84,10 @@ async function getAllPages(path, params) {
     }
     collected.push(...payload.results);
     nextParams = undefined;
-    nextPath = safeNextPath(payload.next);
+    nextPath = nextPagePath(payload.next);
+  }
+  if (nextPath) {
+    throw new Error('Too many pages.');
   }
   return collected;
 }
@@ -188,10 +193,12 @@ export const projectsAPI = {
   update: (id, data) =>
     isDemoMode() ? demoProjectsAPI.update(id, data) : api.patch(`/projects/${id}/`, data),
   delete: (id) => (isDemoMode() ? demoProjectsAPI.delete(id) : api.delete(`/projects/${id}/`)),
-  getIssues: (id, params = {}) =>
-    isDemoMode()
-      ? demoProjectsAPI.getIssues(id, params)
-      : api.get(`/projects/${id}/issues/`, { params }),
+  getIssues: async (id, params = {}) => {
+    if (isDemoMode()) {
+      return demoProjectsAPI.getIssues(id, params);
+    }
+    return { data: await getAllPages(`/projects/${id}/issues/`, params) };
+  },
 };
 
 // Issues API calls
