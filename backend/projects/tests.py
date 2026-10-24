@@ -3,6 +3,8 @@ Tests for projects app.
 """
 import pytest
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -114,7 +116,8 @@ class TestProjectEndpoints:
         )
         response = api_client.get(f'/api/projects/{project.id}/issues/')
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 2
+        assert response.data['count'] == 2
+        assert len(response.data['results']) == 2
 
     def test_get_project_issues_filtered_by_status(self, authenticated_client, project):
         """
@@ -140,8 +143,8 @@ class TestProjectEndpoints:
         )
         response = api_client.get(f'/api/projects/{project.id}/issues/?status=open')
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
-        assert response.data[0]['status'] == 'open'
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['status'] == 'open'
 
     def test_create_project_unauthenticated(self, api_client):
         """
@@ -221,9 +224,9 @@ class TestProjectEndpoints:
         )
         response = api_client.get(f'/api/projects/{project.id}/issues/?priority=low&search=tax row')
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
-        assert response.data[0]['title'] == 'Receipt email'
-        assert response.data[0]['comment_count'] == 0
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Receipt email'
+        assert response.data['results'][0]['comment_count'] == 0
 
     def test_delete_project_cascades_issues(self, authenticated_client, project):
         """
@@ -339,8 +342,8 @@ class TestProjectEndpoints:
         )
         response = api_client.get(f'/api/projects/{project.id}/issues/?status=open&search=crash')
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
-        assert response.data[0]['title'] == 'Checkout crash'
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Checkout crash'
 
     def test_issue_search_rejects_injection_payload(self, authenticated_client, project, issue):
         """
@@ -350,7 +353,7 @@ class TestProjectEndpoints:
         payload = "'; DROP TABLE issues_issue;--"
         response = api_client.get(f'/api/projects/{project.id}/issues/?search={payload}')
         assert response.status_code == status.HTTP_200_OK
-        assert response.data == []
+        assert response.data['results'] == []
         assert Issue.objects.filter(id=issue.id).exists()
 
     def test_invalid_issue_status_filter_is_400(self, authenticated_client, project):
@@ -360,3 +363,54 @@ class TestProjectEndpoints:
         api_client, _user = authenticated_client
         response = api_client.get(f'/api/projects/{project.id}/issues/?status=hacked')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_project_issues_are_paginated(self, authenticated_client, project, user):
+        """A project with many issues returns one page, not the whole table."""
+        api_client, _user = authenticated_client
+        for index in range(11):
+            Issue.objects.create(
+                title=f'Paged {index}',
+                description='Pagination filler',
+                project=project,
+                reporter=user,
+            )
+        response = api_client.get(f'/api/projects/{project.id}/issues/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 11
+        assert len(response.data['results']) == 10
+        assert response.data['next']
+
+    def test_oversized_description_rejected(self, authenticated_client):
+        """Project descriptions have the same kind of upper bound as comments."""
+        api_client, _user = authenticated_client
+        response = api_client.post('/api/projects/', {
+            'name': 'Too long',
+            'description': 'd' * 10_001,
+        })
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not Project.objects.filter(name='Too long').exists()
+
+    def test_project_list_counts_issues_without_a_query_per_project(self, authenticated_client, user):
+        """Listing projects counts issues in the list query."""
+        api_client, _user = authenticated_client
+        for index in range(6):
+            created = Project.objects.create(
+                name=f'Counted {index}',
+                description='Has one issue',
+                created_by=user,
+            )
+            Issue.objects.create(
+                title=f'Child {index}',
+                description='Counted with the project',
+                project=created,
+                reporter=user,
+            )
+        with CaptureQueriesContext(connection) as captured:
+            response = api_client.get('/api/projects/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 6
+        assert [item['name'] for item in response.data['results']] == [
+            'Counted 5', 'Counted 4', 'Counted 3', 'Counted 2', 'Counted 1', 'Counted 0',
+        ]
+        assert [item['issue_count'] for item in response.data['results']] == [1, 1, 1, 1, 1, 1]
+        assert len(captured) <= 4

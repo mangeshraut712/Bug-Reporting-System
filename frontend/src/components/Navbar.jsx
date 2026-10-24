@@ -14,7 +14,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-white shadow-md">
+    <nav aria-label="Main" className="bg-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link to="/" className="flex items-center space-x-2">
@@ -43,6 +43,7 @@ const Navbar = () => {
                   Welcome, {user?.first_name || user?.email}
                 </span>
                 <button
+                  type="button"
                   onClick={handleLogout}
                   className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
                 >
@@ -70,7 +71,11 @@ const Navbar = () => {
 
           {/* Mobile Menu Button */}
           <button
+            type="button"
             className="md:hidden"
+            aria-expanded={isOpen}
+            aria-controls="mobile-menu"
+            aria-label={isOpen ? 'Close menu' : 'Open menu'}
             onClick={() => setIsOpen(!isOpen)}
           >
             {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -79,7 +84,7 @@ const Navbar = () => {
 
         {/* Mobile Menu */}
         {isOpen && (
-          <div className="md:hidden pb-4 space-y-2">
+          <div id="mobile-menu" className="md:hidden pb-4 space-y-2">
             {isAuthenticated ? (
               <>
                 <Link
@@ -90,6 +95,7 @@ const Navbar = () => {
                   Dashboard
                 </Link>
                 <button
+                  type="button"
                   onClick={handleLogout}
                   className="w-full text-left text-red-600 hover:text-red-700 py-2"
                 >

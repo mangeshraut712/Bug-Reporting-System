@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { asList, projectsAPI } from '../services/api';
+import { firstFieldError } from '../services/formErrors';
 import { toast } from 'react-toastify';
 import { Plus, Folder } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
+import Modal from '../components/Modal';
 
 const DashboardPage = () => {
   const [projects, setProjects] = useState([]);
@@ -13,6 +15,7 @@ const DashboardPage = () => {
     name: '',
     description: '',
   });
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -32,14 +35,20 @@ const DashboardPage = () => {
 
   const handleCreateProject = async (e) => {
     e.preventDefault();
+    if (submitting) {
+      return;
+    }
     try {
+      setSubmitting(true);
       await projectsAPI.create(formData);
       toast.success('Project created successfully!');
       setFormData({ name: '', description: '' });
       setShowModal(false);
       fetchProjects();
     } catch (error) {
-      toast.error('Failed to create project');
+      toast.error(firstFieldError(error.response?.data, 'Failed to create project'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -54,6 +63,7 @@ const DashboardPage = () => {
             <p className="text-gray-600 mt-2">Open a project to filter, create, and track issues</p>
           </div>
           <button
+            type="button"
             onClick={() => setShowModal(true)}
             className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
           >
@@ -68,6 +78,7 @@ const DashboardPage = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
             <p className="text-gray-600 mb-6">Create your first project to get started</p>
             <button
+              type="button"
               onClick={() => setShowModal(true)}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
             >
@@ -75,41 +86,41 @@ const DashboardPage = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <ul className="grid list-none grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {projects.map((project) => (
-              <Link
-                key={project.id}
-                to={`/projects/${project.id}/issues`}
-                className="block bg-white rounded-lg shadow hover:shadow-lg transition p-6 cursor-pointer border border-gray-100"
-              >
+              <li key={project.id}>
+                <Link
+                  to={`/projects/${project.id}/issues`}
+                  className="block bg-white rounded-lg shadow hover:shadow-lg transition p-6 cursor-pointer border border-gray-100"
+                >
                 <div className="flex items-start justify-between mb-4">
                   <Folder className="text-blue-600" size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{project.name}</h3>
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">{project.description}</p>
+                <h3 className="text-xl font-bold text-gray-900 mb-2 wrap-break-word">{project.name}</h3>
+                <p className="text-gray-600 text-sm mb-4 line-clamp-2 wrap-break-word">{project.description}</p>
                 <div className="flex items-center justify-between text-sm text-gray-500">
                   <span>
                     {project.issue_count} {project.issue_count === 1 ? 'issue' : 'issues'}
                   </span>
                   <span>{new Date(project.created_at).toLocaleDateString()}</span>
                 </div>
-              </Link>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
 
       {/* Create Project Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Create New Project</h2>
+        <Modal title="Create New Project" onClose={() => setShowModal(false)}>
             <form onSubmit={handleCreateProject} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="project-name" className="block text-sm font-medium text-gray-700 mb-1">
                   Project Name
                 </label>
                 <input
+                  id="project-name"
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -119,10 +130,11 @@ const DashboardPage = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="project-description" className="block text-sm font-medium text-gray-700 mb-1">
                   Description
                 </label>
                 <textarea
+                  id="project-description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   required
@@ -141,14 +153,14 @@ const DashboardPage = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Create
+                  {submitting ? 'Creating...' : 'Create'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

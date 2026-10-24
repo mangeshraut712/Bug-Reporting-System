@@ -1,7 +1,12 @@
 """
 Views for accounts app.
 """
-from dj_rest_auth.views import LoginView, LogoutView
+from dj_rest_auth.views import (
+    LoginView,
+    LogoutView,
+    PasswordResetConfirmView,
+    PasswordResetView,
+)
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -9,7 +14,12 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .serializers import RegisterSerializer, UserSerializer
-from .throttles import LoginRateThrottle, RefreshRateThrottle, RegisterRateThrottle
+from .throttles import (
+    LoginRateThrottle,
+    PasswordResetRateThrottle,
+    RefreshRateThrottle,
+    RegisterRateThrottle,
+)
 
 
 class RegisterView(APIView):
@@ -51,6 +61,22 @@ class PublicTokenRefreshView(TokenRefreshView):
     permission_classes = [AllowAny]
     authentication_classes = []
     throttle_classes = [RefreshRateThrottle]
+
+
+class ThrottledPasswordResetView(PasswordResetView):
+    """Send a reset email without requiring a valid access token."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [PasswordResetRateThrottle]
+
+
+class ThrottledPasswordResetConfirmView(PasswordResetConfirmView):
+    """Set a new password from a reset token. A stale access token is ignored."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [PasswordResetRateThrottle]
 
 
 class CurrentUserView(APIView):

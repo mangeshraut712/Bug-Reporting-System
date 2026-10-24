@@ -146,12 +146,24 @@ export const disableDemoMode = () => {
 
 const readStore = () => {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    const seeded = seedStore();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-    return seeded;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (
+        parsed &&
+        Array.isArray(parsed.projects) &&
+        Array.isArray(parsed.issues) &&
+        Array.isArray(parsed.comments)
+      ) {
+        return parsed;
+      }
+    } catch {
+      // Fall through and replace the corrupt payload.
+    }
   }
-  return JSON.parse(raw);
+  const seeded = seedStore();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+  return seeded;
 };
 
 const writeStore = (store) => {
@@ -193,6 +205,9 @@ export const demoProjectsAPI = {
   update: (id, data) => {
     const store = readStore();
     const index = store.projects.findIndex((item) => String(item.id) === String(id));
+    if (index === -1) {
+      return Promise.reject(new Error('Project not found'));
+    }
     store.projects[index] = { ...store.projects[index], ...data };
     writeStore(store);
     return wrap(store.projects[index]);
@@ -249,6 +264,9 @@ export const demoIssuesAPI = {
   update: (id, data) => {
     const store = readStore();
     const index = store.issues.findIndex((item) => String(item.id) === String(id));
+    if (index === -1) {
+      return Promise.reject(new Error('Issue not found'));
+    }
     store.issues[index] = { ...store.issues[index], ...data };
     writeStore(store);
     return wrap(store.issues[index]);
@@ -285,6 +303,9 @@ export const demoIssuesAPI = {
   updateStatus: (id, status) => {
     const store = readStore();
     const index = store.issues.findIndex((item) => String(item.id) === String(id));
+    if (index === -1) {
+      return Promise.reject(new Error('Issue not found'));
+    }
     store.issues[index] = { ...store.issues[index], status };
     writeStore(store);
     return wrap(store.issues[index]);
@@ -292,6 +313,9 @@ export const demoIssuesAPI = {
   assign: (id, assigneeId) => {
     const store = readStore();
     const index = store.issues.findIndex((item) => String(item.id) === String(id));
+    if (index === -1) {
+      return Promise.reject(new Error('Issue not found'));
+    }
     store.issues[index] = {
       ...store.issues[index],
       assignee: assigneeId,
@@ -319,6 +343,9 @@ export const demoCommentsAPI = {
   update: (id, data) => {
     const store = readStore();
     const index = store.comments.findIndex((item) => String(item.id) === String(id));
+    if (index === -1) {
+      return Promise.reject(new Error('Comment not found'));
+    }
     store.comments[index] = { ...store.comments[index], ...data };
     writeStore(store);
     return wrap(store.comments[index]);

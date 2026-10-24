@@ -11,6 +11,18 @@ from rest_framework import exceptions, serializers
 User = get_user_model()
 
 
+def validation_error_for_duplicate_user(exc):
+    """Map a unique-constraint failure to the field that collided."""
+    message = str(exc).lower()
+    if 'username' in message:
+        raise serializers.ValidationError({
+            'username': 'A user with that username already exists.',
+        }) from exc
+    raise serializers.ValidationError({
+        'email': 'A user with this email already exists.',
+    }) from exc
+
+
 class UserSerializer(serializers.ModelSerializer):
     """
     Serializer for User model.
@@ -78,9 +90,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             with transaction.atomic():
                 user = User.objects.create_user(password=password, **validated_data)
         except IntegrityError as exc:
-            raise serializers.ValidationError({
-                'email': 'A user with this email already exists.',
-            }) from exc
+            validation_error_for_duplicate_user(exc)
         if user.is_staff or user.is_superuser:
             user.is_staff = False
             user.is_superuser = False
@@ -96,6 +106,18 @@ class CustomUserDetailsSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'email', 'username', 'first_name', 'last_name')
         read_only_fields = ('id', 'email')
+
+    def validate_username(self, value):
+        """Reject blank names and collisions that differ only by letter case."""
+        username = value.strip()
+        if not username:
+            raise serializers.ValidationError('Username cannot be blank.')
+        conflict = User.objects.filter(username__iexact=username)
+        if self.instance is not None:
+            conflict = conflict.exclude(pk=self.instance.pk)
+        if conflict.exists():
+            raise serializers.ValidationError('A user with that username already exists.')
+        return username
 
 
 class EmailLoginSerializer(LoginSerializer):

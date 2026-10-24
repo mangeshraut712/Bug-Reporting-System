@@ -4,10 +4,9 @@ Serializers for comments app.
 from rest_framework import serializers
 
 from accounts.models import user_display_name
+from bug_tracking.validation import MAX_COMMENT_LENGTH
 
 from .models import Comment
-
-MAX_COMMENT_LENGTH = 5000
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -24,6 +23,12 @@ class CommentSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         )
         read_only_fields = ('id', 'author', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # A comment stays on the issue it was written for.
+        if getattr(self, 'instance', None) is not None:
+            self.fields['issue'].read_only = True
 
     def get_author_name(self, obj):
         """Display name of the author, or null when that user was deleted."""

@@ -4,6 +4,7 @@ Views for issues app.
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import DataError
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import action
@@ -16,6 +17,7 @@ from bug_tracking.mixins import PositiveIntLookupMixin
 from bug_tracking.validation import parse_positive_int
 from projects.models import Project
 
+from .filters import filter_issues
 from .models import Issue
 from .permissions import IsReporterOrAssignee
 from .serializers import IssueSerializer
@@ -34,18 +36,18 @@ class IssueViewSet(PositiveIntLookupMixin, ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """
-        Optimize queries using select_related and prefetch_related.
-        """
+        """Load related rows and comment totals without a query per issue."""
         queryset = Issue.objects.select_related(
             'project', 'reporter', 'assignee'
-        ).prefetch_related('comments')
+        ).annotate(annotated_comment_count=Count('comments'))
 
         project_id = parse_positive_int(self.request.query_params.get('project_id'), 'project_id')
         if project_id is not None:
             queryset = queryset.filter(project_id=project_id)
 
-        return queryset
+        # Count() groups rows and drops the model's default ordering, which
+        # makes pagination unstable. Put the newest issues first explicitly.
+        return filter_issues(queryset, self.request.query_params).order_by('-created_at', '-id')
 
     def perform_create(self, serializer):
         """
@@ -111,6 +113,11 @@ class IssueViewSet(PositiveIntLookupMixin, ModelViewSet):
             assignee = User.objects.get(pk=assignee_id)
         except (User.DoesNotExist, DjangoValidationError, DataError, OverflowError, ValueError):
             return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if not assignee.is_active:
+            return Response(
+                {'error': 'Inactive users cannot be assigned.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         issue.assignee = assignee
         issue.save()

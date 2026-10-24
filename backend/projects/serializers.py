@@ -4,6 +4,7 @@ Serializers for projects app.
 from rest_framework import serializers
 
 from accounts.models import user_display_name
+from bug_tracking.validation import MAX_DESCRIPTION_LENGTH
 
 from .models import Project
 
@@ -28,9 +29,10 @@ class ProjectSerializer(serializers.ModelSerializer):
         return user_display_name(obj.created_by)
 
     def get_issue_count(self, obj):
-        """
-        Get the count of issues for this project.
-        """
+        """Count issues from an annotation when the view provided one."""
+        annotated = getattr(obj, 'annotated_issue_count', None)
+        if annotated is not None:
+            return annotated
         return obj.issues.count()
 
     def validate_name(self, value):
@@ -41,8 +43,10 @@ class ProjectSerializer(serializers.ModelSerializer):
         return name
 
     def validate_description(self, value):
-        """Reject a blank project description."""
+        """Reject a blank or oversized project description."""
         description = value.strip()
         if not description:
             raise serializers.ValidationError('Description cannot be blank.')
+        if len(description) > MAX_DESCRIPTION_LENGTH:
+            raise serializers.ValidationError('Description is too long.')
         return description

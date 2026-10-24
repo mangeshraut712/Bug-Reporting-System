@@ -1,6 +1,7 @@
 """
 Views for projects app.
 """
+from django.db.models import Count
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -24,10 +25,12 @@ class ProjectViewSet(PositiveIntLookupMixin, ModelViewSet):
     permission_classes = [IsAuthenticated, IsProjectOwnerOrReadOnly]
 
     def get_queryset(self):
-        """
-        Optimize queries using select_related and prefetch_related.
-        """
-        return Project.objects.select_related('created_by').prefetch_related('issues')
+        """Load creators and issue totals without a query per project."""
+        return (
+            Project.objects.select_related('created_by')
+            .annotate(annotated_issue_count=Count('issues'))
+            .order_by('-created_at', '-id')
+        )
 
     def perform_create(self, serializer):
         """
@@ -42,6 +45,13 @@ class ProjectViewSet(PositiveIntLookupMixin, ModelViewSet):
         """
         project = self.get_object()
         issues = filter_issues(project.issues.all(), request.query_params)
-        issues = issues.select_related('reporter', 'assignee').prefetch_related('comments')
-        serializer = IssueSerializer(issues, many=True)
+        issues = (
+            issues.select_related('project', 'reporter', 'assignee')
+            .annotate(annotated_comment_count=Count('comments'))
+            .order_by('-created_at', '-id')
+        )
+        page = self.paginate_queryset(issues)
+        serializer = IssueSerializer(page if page is not None else issues, many=True)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
         return Response(serializer.data)

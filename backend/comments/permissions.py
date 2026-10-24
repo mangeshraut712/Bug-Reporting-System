@@ -3,7 +3,7 @@ from rest_framework import permissions
 
 
 class IsCommentAuthor(permissions.BasePermission):
-    """Only the comment author or a staff user may change a comment."""
+    """The author, the project owner, or staff may change a comment."""
 
     message = 'You do not have permission to perform this action.'
 
@@ -13,4 +13,6 @@ class IsCommentAuthor(permissions.BasePermission):
             return False
         if user.is_staff:
             return True
-        return obj.author_id == user.id
+        if obj.author_id == user.id:
+            return True
+        return obj.issue.project.created_by_id == user.id

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { asList, commentsAPI, issuesAPI } from '../services/api';
+import { firstFieldError } from '../services/formErrors';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import { ArrowLeft, MessageSquare, Send } from 'lucide-react';
@@ -57,13 +58,19 @@ const IssueDetailPage = () => {
       setCommentText('');
       fetchIssueAndComments();
     } catch (error) {
-      toast.error('Failed to add comment');
+      toast.error(firstFieldError(error.response?.data, 'Failed to add comment'));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const canEditIssue = user && (user.id === issue?.reporter || user.id === issue?.assignee);
+  const canEditIssue = Boolean(
+    user &&
+      issue &&
+      (user.id === issue.reporter ||
+        user.id === issue.assignee ||
+        (issue.project_created_by != null && user.id === issue.project_created_by))
+  );
 
   const getPriorityColor = (priority) => {
     const colors = {
@@ -92,6 +99,7 @@ const IssueDetailPage = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <button
+          type="button"
           onClick={() => navigate(-1)}
           className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 mb-6"
         >
@@ -103,8 +111,8 @@ const IssueDetailPage = () => {
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex items-start justify-between mb-6">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">{issue.title}</h1>
-              <p className="text-gray-600">{issue.description}</p>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2 wrap-break-word">{issue.title}</h1>
+              <p className="whitespace-pre-wrap wrap-break-word text-gray-600">{issue.description}</p>
             </div>
             <div className="flex items-center space-x-2 ml-4">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(issue.status)}`}>
@@ -139,10 +147,11 @@ const IssueDetailPage = () => {
           {/* Status Update */}
           {canEditIssue && (
             <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="issue-status" className="block text-sm font-medium text-gray-700 mb-2">
                 Update Status
               </label>
               <select
+                id="issue-status"
                 value={issue.status}
                 onChange={(e) => handleStatusChange(e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-hidden"
@@ -163,32 +172,37 @@ const IssueDetailPage = () => {
           </div>
 
           {/* Comments List */}
-          <div className="space-y-4 mb-6">
+          <div className="mb-6">
             {comments.length === 0 ? (
               <p className="text-gray-600 text-center py-8">No comments yet. Be the first to comment!</p>
             ) : (
-              comments.map((comment) => (
-                <div key={comment.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <ul className="list-none space-y-4">
+              {comments.map((comment) => (
+                <li key={comment.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <p className="font-medium text-gray-900">{comment.author_name}</p>
                       <p className="text-sm text-gray-600">{comment.author_email}</p>
                     </div>
-                    <p className="text-sm text-gray-500">{new Date(comment.created_at).toLocaleString()}</p>
+                    <p className="text-sm text-gray-500">
+                      <time dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleString()}</time>
+                    </p>
                   </div>
-                  <p className="text-gray-700">{comment.content}</p>
-                </div>
-              ))
+                  <p className="whitespace-pre-wrap wrap-break-word text-gray-700">{comment.content}</p>
+                </li>
+              ))}
+              </ul>
             )}
           </div>
 
           {/* Add Comment Form */}
           <form onSubmit={handleAddComment} className="border-t pt-6">
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="comment-body" className="block text-sm font-medium text-gray-700 mb-2">
                 Add a comment
               </label>
               <textarea
+                id="comment-body"
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 rows="4"

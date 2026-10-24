@@ -1,6 +1,9 @@
 """Shared request validation helpers."""
 from rest_framework.exceptions import ValidationError
 
+MAX_COMMENT_LENGTH = 5000
+MAX_DESCRIPTION_LENGTH = 10_000
+
 
 def parse_positive_int(value, field_name):
     """Return a positive integer, or None when the value was omitted.
