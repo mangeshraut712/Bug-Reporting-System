@@ -14,10 +14,10 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.getCurrentUser();
       setUser(response.data);
       setError(null);
-    } catch (err) {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
+      return true;
+    } catch {
       setUser(null);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -54,8 +54,7 @@ export const AuthProvider = ({ children }) => {
       const { access, refresh } = response.data;
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
-      await fetchCurrentUser();
-      return true;
+      return await fetchCurrentUser();
     } catch (err) {
       const message = err.response?.data?.detail || 'Login failed';
       setError(message);

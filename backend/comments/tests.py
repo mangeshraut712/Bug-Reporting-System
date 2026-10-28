@@ -190,6 +190,22 @@ class TestCommentEndpoints:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert issue.comments.count() == 0
 
+    def test_create_for_issue_rejects_list_payload_without_creating_a_comment(
+        self, authenticated_client, issue
+    ):
+        """A shortcut create needs a JSON object, not an array payload."""
+        api_client, _ = authenticated_client
+        comment_count = issue.comments.count()
+
+        response = api_client.post(
+            f'/api/comments/create-for-issue/{issue.id}/',
+            [],
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert issue.comments.count() == comment_count
+
     def test_create_for_missing_issue(self, authenticated_client):
         """
         Commenting on a missing issue returns 404.

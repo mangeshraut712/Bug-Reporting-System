@@ -10,6 +10,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import serializers, status
 
+from accounts import models as account_models
 from accounts.serializers import validation_error_for_duplicate_user
 from accounts.throttles import LoginRateThrottle, PasswordResetRateThrottle, RegisterRateThrottle
 
@@ -443,6 +444,23 @@ class TestAuthEndpoints:
             'password': 'replacement-pass-9',
         })
         assert relogin.status_code == status.HTTP_200_OK
+
+    def test_password_change_rolls_back_when_token_revocation_fails(self, user, monkeypatch):
+        """A failed revocation cannot leave a new password committed on its own."""
+        previous_password_hash = user.password
+
+        def fail_revocation(_user):
+            raise IntegrityError('token blacklist write failed')
+
+        monkeypatch.setattr(account_models, 'blacklist_outstanding_tokens', fail_revocation)
+        user.set_password('replacement-pass-9')
+
+        with pytest.raises(IntegrityError, match='token blacklist write failed'):
+            user.save()
+
+        user.refresh_from_db()
+        assert user.password == previous_password_hash
+        assert user.check_password('testpass123')
 
     def test_password_reset_does_not_reveal_whether_the_account_exists(self, api_client, user):
         """Known and unknown addresses get the same reset response."""

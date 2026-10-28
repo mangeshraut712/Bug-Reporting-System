@@ -2,7 +2,7 @@
 User model for accounts app.
 """
 from django.contrib.auth.models import AbstractUser
-from django.db import models
+from django.db import models, transaction
 from django.db.models.functions import Lower
 
 
@@ -54,9 +54,12 @@ class User(AbstractUser):
         if self.pk and (update_fields is None or 'password' in update_fields):
             previous = type(self).objects.filter(pk=self.pk).values_list('password', flat=True).first()
             password_changed = previous is not None and previous != self.password
-        super().save(*args, **kwargs)
         if password_changed:
-            blacklist_outstanding_tokens(self)
+            with transaction.atomic():
+                super().save(*args, **kwargs)
+                blacklist_outstanding_tokens(self)
+            return
+        super().save(*args, **kwargs)
 
     def display_name(self):
         """Name shown in the API, falling back when the profile name is blank."""

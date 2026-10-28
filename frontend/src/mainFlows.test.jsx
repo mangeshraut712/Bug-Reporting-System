@@ -109,6 +109,24 @@ describe('main flows', () => {
     expect(localStorage.getItem('access_token')).toBe('access-token');
   });
 
+  test('does not report a successful login when loading the current user fails', async () => {
+    const user = userEvent.setup();
+    apiMock.post.mockResolvedValueOnce({
+      data: { access: 'access-token', refresh: 'refresh-token' },
+    });
+    apiMock.get.mockRejectedValueOnce(new Error('profile service unavailable'));
+    renderAt('/login');
+
+    await user.type(screen.getByPlaceholderText('you@example.com'), 'ada@example.com');
+    await user.type(screen.getByPlaceholderText('••••••••'), 'correct-password');
+    await user.click(screen.getByRole('button', { name: 'Sign In' }));
+
+    expect(await screen.findByText('Invalid email or password')).toBeInTheDocument();
+    expect(screen.queryByText('Login successful!')).not.toBeInTheDocument();
+    expect(localStorage.getItem('access_token')).toBe('access-token');
+    expect(localStorage.getItem('refresh_token')).toBe('refresh-token');
+  });
+
   test('renders a paginated project list from the API', async () => {
     const user = userEvent.setup();
     apiMock.post.mockResolvedValueOnce({

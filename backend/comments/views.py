@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from bug_tracking.mixins import PositiveIntLookupMixin
-from bug_tracking.validation import parse_positive_int
+from bug_tracking.validation import parse_positive_int, require_object_payload
 from issues.models import Issue
 
 from .models import Comment
@@ -57,7 +57,7 @@ class CommentViewSet(PositiveIntLookupMixin, ModelViewSet):
         parsed_id = parse_positive_int(issue_id, 'issue_id')
         issue = get_object_or_404(Issue, pk=parsed_id)
 
-        data = request.data.copy()
+        data = require_object_payload(request.data).copy()
         data['issue'] = issue.id
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)

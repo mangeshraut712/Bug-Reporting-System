@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from bug_tracking.mixins import PositiveIntLookupMixin
-from bug_tracking.validation import parse_positive_int
+from bug_tracking.validation import parse_positive_int, require_object_payload
 from projects.models import Project
 
 from .filters import filter_issues
@@ -71,7 +71,7 @@ class IssueViewSet(PositiveIntLookupMixin, ModelViewSet):
         parsed_id = parse_positive_int(project_id, 'project_id')
         project = get_object_or_404(Project, pk=parsed_id)
 
-        data = request.data.copy()
+        data = require_object_payload(request.data).copy()
         data['project'] = project.id
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
@@ -84,7 +84,7 @@ class IssueViewSet(PositiveIntLookupMixin, ModelViewSet):
         Update the status of an issue.
         """
         issue = self.get_object()
-        new_status = request.data.get('status')
+        new_status = require_object_payload(request.data).get('status')
         if new_status in (None, ''):
             return Response({'error': 'Status is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -99,13 +99,14 @@ class IssueViewSet(PositiveIntLookupMixin, ModelViewSet):
         Assign an issue to a user.
         """
         issue = self.get_object()
-        if 'assignee_id' not in request.data or request.data.get('assignee_id') in (None, ''):
+        data = require_object_payload(request.data)
+        if 'assignee_id' not in data or data.get('assignee_id') in (None, ''):
             issue.assignee = None
             issue.save()
             return Response(self.get_serializer(issue).data)
 
         try:
-            assignee_id = parse_positive_int(request.data.get('assignee_id'), 'assignee_id')
+            assignee_id = parse_positive_int(data.get('assignee_id'), 'assignee_id')
         except ValidationError as exc:
             return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 

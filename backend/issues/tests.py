@@ -237,6 +237,22 @@ class TestIssueEndpoints:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert not Issue.objects.filter(description='Missing title').exists()
 
+    def test_create_for_project_rejects_list_payload_without_creating_an_issue(
+        self, authenticated_client, project
+    ):
+        """A shortcut create needs a JSON object, not an array payload."""
+        api_client, _ = authenticated_client
+        issue_count = Issue.objects.count()
+
+        response = api_client.post(
+            f'/api/issues/create-for-project/{project.id}/',
+            [],
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Issue.objects.count() == issue_count
+
     def test_create_for_missing_project(self, authenticated_client):
         """
         Creating an issue for a missing project returns 404.
@@ -261,6 +277,28 @@ class TestIssueEndpoints:
             reporter=user,
         )
         response = api_client.patch(f'/api/issues/{issue.id}/update_status/', {})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        issue.refresh_from_db()
+        assert issue.status == 'open'
+
+    def test_update_status_rejects_list_payload_without_changing_the_issue(
+        self, authenticated_client, project, user
+    ):
+        """A malformed status payload cannot change an issue."""
+        api_client, _ = authenticated_client
+        issue = Issue.objects.create(
+            title='Needs a valid payload',
+            description='Array bodies are not status updates',
+            project=project,
+            reporter=user,
+        )
+
+        response = api_client.patch(
+            f'/api/issues/{issue.id}/update_status/',
+            [],
+            format='json',
+        )
+
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         issue.refresh_from_db()
         assert issue.status == 'open'
@@ -296,6 +334,29 @@ class TestIssueEndpoints:
         assert response.status_code == status.HTTP_200_OK
         issue.refresh_from_db()
         assert issue.assignee is None
+
+    def test_assign_rejects_list_payload_without_clearing_the_assignee(
+        self, authenticated_client, project, user
+    ):
+        """A malformed assignment payload cannot unassign an existing owner."""
+        api_client, _ = authenticated_client
+        issue = Issue.objects.create(
+            title='Keep assignee',
+            description='An array is not an unassign request',
+            project=project,
+            reporter=user,
+            assignee=user,
+        )
+
+        response = api_client.patch(
+            f'/api/issues/{issue.id}/assign/',
+            [],
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        issue.refresh_from_db()
+        assert issue.assignee == user
 
     def test_stranger_cannot_update_issue(self, authenticated_client_other, project, user):
         """
@@ -465,6 +526,14 @@ class TestIssueEndpoints:
         for project_id in ('abc', '0', '-1'):
             response = api_client.get(f'/api/issues/?project_id={project_id}')
             assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_out_of_range_project_filter_is_400(self, authenticated_client):
+        """An integer beyond the database key range is a client error, not a 500."""
+        api_client, _user = authenticated_client
+
+        response = api_client.get('/api/issues/?project_id=9223372036854775808')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_invalid_issue_lookup_is_400(self, authenticated_client):
         """
