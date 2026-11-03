@@ -34,6 +34,12 @@ Object.defineProperty(globalThis, 'localStorage', {
   value: memoryStorage,
   writable: true,
 });
+Object.defineProperty(window, 'localStorage', {
+  configurable: true,
+  enumerable: true,
+  value: memoryStorage,
+  writable: true,
+});
 
 afterEach(() => {
   cleanup();
