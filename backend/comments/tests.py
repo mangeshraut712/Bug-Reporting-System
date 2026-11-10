@@ -329,3 +329,37 @@ class TestCommentEndpoints:
         response = api_client.delete(f'/api/comments/{comment.id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert not Comment.objects.filter(id=comment.id).exists()
+
+    def test_author_email_is_hidden_from_unrelated_users(
+        self, authenticated_client, authenticated_client_other, issue, another_user
+    ):
+        """Only the author, project owner, or staff receive the comment author's email."""
+        comment = Comment.objects.create(
+            content='Private address',
+            issue=issue,
+            author=another_user,
+        )
+
+        owner_client, _owner = authenticated_client
+        owner_response = owner_client.get(f'/api/comments/{comment.id}/')
+        assert owner_response.status_code == status.HTTP_200_OK
+        assert owner_response.data['author_email'] == another_user.email
+
+        other_client, _other = authenticated_client_other
+        author_response = other_client.get(f'/api/comments/{comment.id}/')
+        assert author_response.data['author_email'] == another_user.email
+
+        from django.contrib.auth import get_user_model
+        stranger = get_user_model().objects.create_user(
+            email='stranger@example.com',
+            username='stranger',
+            password='testpass123',
+        )
+        stranger_client = APIClient()
+        refresh = RefreshToken.for_user(stranger)
+        stranger_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        hidden = stranger_client.get(f'/api/comments/{comment.id}/')
+        assert hidden.status_code == status.HTTP_200_OK
+        assert hidden.data['author_name'] == another_user.get_full_name()
+        assert hidden.data['author_email'] is None
+        assert hidden.data['content'] == 'Private address'
