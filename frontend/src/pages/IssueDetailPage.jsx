@@ -182,7 +182,9 @@ const IssueDetailPage = () => {
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <p className="font-medium text-gray-900">{comment.author_name}</p>
-                      <p className="text-sm text-gray-600">{comment.author_email}</p>
+                      {comment.author_email ? (
+                        <p className="text-sm text-gray-600">{comment.author_email}</p>
+                      ) : null}
                     </div>
                     <p className="text-sm text-gray-500">
                       <time dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleString()}</time>

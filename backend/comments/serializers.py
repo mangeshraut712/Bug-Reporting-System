@@ -35,10 +35,19 @@ class CommentSerializer(serializers.ModelSerializer):
         return user_display_name(obj.author)
 
     def get_author_email(self, obj):
-        """Email of the author, or null when that user was deleted."""
+        """Email of the author, only for the author, project owner, or staff."""
         if obj.author_id is None:
             return None
-        return obj.author.email
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return None
+        if user.is_staff or user.id == obj.author_id:
+            return obj.author.email
+        project = getattr(getattr(obj, 'issue', None), 'project', None)
+        if project is not None and project.created_by_id == user.id:
+            return obj.author.email
+        return None
 
     def validate_content(self, value):
         """Require comment text and cap its size."""
