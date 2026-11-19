@@ -145,6 +145,7 @@ class TestAuthEndpoints:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['email'] == user.email
         assert response.data['username'] == user.username
+        assert response.data['is_staff'] is False
         assert 'password' not in response.data
 
     def test_current_user_requires_authentication(self, api_client):

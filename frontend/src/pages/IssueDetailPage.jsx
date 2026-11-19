@@ -67,7 +67,8 @@ const IssueDetailPage = () => {
   const canEditIssue = Boolean(
     user &&
       issue &&
-      (user.id === issue.reporter ||
+      (user.is_staff ||
+        user.id === issue.reporter ||
         user.id === issue.assignee ||
         (issue.project_created_by != null && user.id === issue.project_created_by))
   );

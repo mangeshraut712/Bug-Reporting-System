@@ -344,4 +344,42 @@ describe('main flows', () => {
     expect(await screen.findByText('closed')).toBeInTheDocument();
     expect(apiMock.patch).toHaveBeenCalledWith('/issues/7/update_status/', { status: 'closed' });
   });
+
+  test('shows the status control to staff, who the API lets edit any issue', async () => {
+    localStorage.setItem('access_token', 'access-token');
+    apiMock.get.mockImplementation((url) => {
+      if (url === '/auth/users/me/') {
+        return Promise.resolve({
+          data: { id: 4, email: 'ops@example.com', first_name: 'Ops', username: 'ops', is_staff: true },
+        });
+      }
+      if (url === '/issues/8/') {
+        return Promise.resolve({
+          data: {
+            id: 8,
+            title: 'Staff triage',
+            description: 'Nobody here is Ops',
+            status: 'open',
+            priority: 'high',
+            project_name: 'Checkout Service',
+            project_created_by: 2,
+            reporter: 3,
+            reporter_name: 'Other Person',
+            assignee: null,
+            assignee_name: null,
+            created_at: '2026-01-15T00:00:00Z',
+            comment_count: 0,
+          },
+        });
+      }
+      if (url === '/comments/') {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.reject(new Error(`unexpected ${url}`));
+    });
+    renderAt('/issues/8');
+
+    expect(await screen.findByRole('heading', { name: 'Staff triage' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Update Status')).toBeInTheDocument();
+  });
 });
