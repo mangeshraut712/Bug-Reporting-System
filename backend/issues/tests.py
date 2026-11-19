@@ -457,6 +457,27 @@ class TestIssueEndpoints:
         issue.refresh_from_db()
         assert issue.assignee_id is None
 
+    @pytest.mark.parametrize('body', [['a', 'b'], 'status', 7])
+    def test_custom_actions_reject_non_object_json(self, authenticated_client, project, user, body):
+        """A JSON array or scalar body is a 400, not a 500."""
+        api_client, _user = authenticated_client
+        issue = Issue.objects.create(
+            title='Odd body',
+            description='Array payload',
+            project=project,
+            reporter=user,
+        )
+        for method, url in (
+            ('post', f'/api/issues/create-for-project/{project.id}/'),
+            ('patch', f'/api/issues/{issue.id}/update_status/'),
+            ('patch', f'/api/issues/{issue.id}/assign/'),
+        ):
+            response = getattr(api_client, method)(url, body, format='json')
+            assert response.status_code == status.HTTP_400_BAD_REQUEST, url
+        issue.refresh_from_db()
+        assert issue.status == 'open'
+        assert issue.assignee_id is None
+
     def test_invalid_project_filter_is_400(self, authenticated_client):
         """
         A non-numeric project filter does not raise a server error.

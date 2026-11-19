@@ -27,6 +27,12 @@ User = get_user_model()
 MUTATING_ACTIONS = {'update', 'partial_update', 'destroy', 'update_status', 'assign'}
 
 
+def require_object_body(request):
+    """Custom actions read request.data like a dict; reject JSON arrays and scalars with a 400."""
+    if not isinstance(request.data, dict):
+        raise ValidationError({'error': 'Expected a JSON object.'})
+
+
 class IssueViewSet(PositiveIntLookupMixin, ModelViewSet):
     """
     ViewSet for Issue model.
@@ -70,6 +76,7 @@ class IssueViewSet(PositiveIntLookupMixin, ModelViewSet):
         """
         parsed_id = parse_positive_int(project_id, 'project_id')
         project = get_object_or_404(Project, pk=parsed_id)
+        require_object_body(request)
 
         data = request.data.copy()
         data['project'] = project.id
@@ -84,6 +91,7 @@ class IssueViewSet(PositiveIntLookupMixin, ModelViewSet):
         Update the status of an issue.
         """
         issue = self.get_object()
+        require_object_body(request)
         new_status = request.data.get('status')
         if new_status in (None, ''):
             return Response({'error': 'Status is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -99,6 +107,7 @@ class IssueViewSet(PositiveIntLookupMixin, ModelViewSet):
         Assign an issue to a user.
         """
         issue = self.get_object()
+        require_object_body(request)
         if 'assignee_id' not in request.data or request.data.get('assignee_id') in (None, ''):
             issue.assignee = None
             issue.save()
