@@ -48,6 +48,16 @@ class TestCommentEndpoints:
         assert response.status_code == status.HTTP_201_CREATED
         assert Comment.objects.filter(content='This is a test comment').exists()
 
+    @pytest.mark.parametrize('body', [['a', 'b'], 'comment', 7])
+    def test_create_for_issue_rejects_non_object_json(self, authenticated_client, issue, body):
+        """A JSON array or scalar body is a 400, not a 500."""
+        api_client, _user = authenticated_client
+        response = api_client.post(
+            f'/api/comments/create-for-issue/{issue.id}/', body, format='json'
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not Comment.objects.filter(issue=issue).exists()
+
     def test_list_comments(self, authenticated_client, issue, user):
         """
         Test listing comments.
