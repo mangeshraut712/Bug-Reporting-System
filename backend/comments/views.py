@@ -10,8 +10,8 @@ from rest_framework.viewsets import ModelViewSet
 
 from bug_tracking.mixins import PositiveIntLookupMixin
 from bug_tracking.validation import parse_positive_int
-from issues.views import require_object_body
 from issues.models import Issue
+from issues.views import require_object_body
 
 from .models import Comment
 from .permissions import IsCommentAuthor
