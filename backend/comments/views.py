@@ -11,6 +11,7 @@ from rest_framework.viewsets import ModelViewSet
 from bug_tracking.mixins import PositiveIntLookupMixin
 from bug_tracking.validation import parse_positive_int
 from issues.models import Issue
+from issues.views import require_object_body
 
 from .models import Comment
 from .permissions import IsCommentAuthor
@@ -56,6 +57,7 @@ class CommentViewSet(PositiveIntLookupMixin, ModelViewSet):
         """
         parsed_id = parse_positive_int(issue_id, 'issue_id')
         issue = get_object_or_404(Issue, pk=parsed_id)
+        require_object_body(request)
 
         data = request.data.copy()
         data['issue'] = issue.id
