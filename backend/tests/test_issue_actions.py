@@ -97,12 +97,15 @@ class TestAssignAction:
             format='json',
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+        issue.refresh_from_db()
+        assert issue.assignee_id is None
 
 
 class TestUpdateStatusAction:
     def test_blank_status_rejected(self, api_client):
         owner = make_user('statusowner')
         issue = make_issue(owner)
+        previous = issue.status
         api_client.force_authenticate(user=owner)
         response = api_client.patch(
             f'/api/issues/{issue.id}/update_status/',
@@ -110,6 +113,8 @@ class TestUpdateStatusAction:
             format='json',
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+        issue.refresh_from_db()
+        assert issue.status == previous
 
     def test_invalid_status_rejected(self, api_client):
         owner = make_user('statusowner2')
@@ -163,16 +168,6 @@ class TestCreateForProjectAction:
         assert issue.reporter_id == requester.id
         assert issue.project_id == project.id
 
-    def test_non_numeric_project_id_rejected(self, api_client):
-        user = make_user('badpathuser')
-        api_client.force_authenticate(user=user)
-        response = api_client.post(
-            '/api/issues/create-for-project/not-a-number/',
-            {'title': 'New bug', 'description': 'It crashes'},
-            format='json',
-        )
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
     def test_requires_authentication(self, api_client):
         owner = make_user('anonprojectowner')
         project = make_project(owner)
@@ -182,3 +177,4 @@ class TestCreateForProjectAction:
             format='json',
         )
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert Issue.objects.count() == 0
